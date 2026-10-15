@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#151721">
+  <meta name="description" content="夜泊，給還捨不得睡的你。一小段對話，替今天找到溫柔的結尾。">
+  <title>夜泊 · 把今天輕輕放下</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/extras.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#tonight" aria-label="夜泊首頁"><span class="brand-symbol" aria-hidden="true">☾</span><span>夜泊<small>NIGHT HARBOR</small></span></a>
+      <p class="nav-label">留一點時間，給自己</p>
+      <nav aria-label="主要導覽">
+        <a href="#tonight" class="nav-link" data-nav="tonight"><span data-icon="moon"></span><span>今晚</span><span class="nav-dot"></span></a>
+        <a href="#pet" class="nav-link" data-nav="pet"><span data-icon="pet"></span><span>我的夥伴</span></a>
+        <a href="#reports" class="nav-link" data-nav="reports"><span data-icon="recap"></span><span>睡眠回報</span></a>
+        <a href="#logs" class="nav-link" data-nav="logs"><span data-icon="journal"></span><span>生活紀錄</span></a>
+        <a href="#knowledge" class="nav-link" data-nav="knowledge"><span data-icon="sparkles"></span><span>睡眠知識</span></a>
+        <a href="#plan" class="nav-link" data-nav="plan"><span data-icon="route"></span><span>作息路徑</span></a>
+        <a href="#settings" class="nav-link" data-nav="settings"><span data-icon="sliders"></span><span class="nav-desktop-title">偏好設定</span><span class="nav-mobile-title">更多</span></a>
+      </nav>
+      <div class="sidebar-bottom"><span class="small-star">✧</span><p>你不需要把每一天<br>都過得很完美。</p><div class="connection"><span class="status-dot" id="status-dot"></span><span id="connection-label">正在確認 AI 連線</span></div></div>
+    </aside>
+    <div class="content-shell">
+      <header class="topbar"><span class="mobile-brand">☾ 夜泊</span><span id="today-label"></span><span class="topbar-note"><span class="tiny-dot"></span>這一刻，留給自己</span></header>
+      <main id="main" tabindex="-1"></main>
+      <footer class="footer"><span>一個溫柔的句點，也是一個新的開始。</span><span>NIGHT HARBOR © 2026</span></footer>
+    </div>
+  </div>
+  <div class="toast" role="status" id="toast" hidden></div>
+  <section class="nudge" id="nudge" aria-label="收尾提醒" hidden></section>
+  <dialog id="confirm-dialog"><form method="dialog"><span class="dialog-star">✧</span><h2 id="dialog-title"></h2><p id="dialog-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">先保留</button><button class="button" value="confirm">確定清除</button></div></form></dialog>
+</body>
+</html>
