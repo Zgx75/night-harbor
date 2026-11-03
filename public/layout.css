@@ -1,0 +1,92 @@
+/* Keep the companion at the center and every function in a persistent left rail. */
+:root{--rail-width:88px}
+.sidebar{position:fixed;inset:0 auto 0 0;z-index:10;width:calc(var(--rail-width) + env(safe-area-inset-left));height:100dvh;display:flex;flex-direction:column;align-items:stretch;padding:calc(23px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));border:0;border-right:1px solid var(--line);background:var(--sidebar)}
+.sidebar .brand{display:flex;justify-content:center;flex-shrink:0;margin:0 0 24px;padding:0;min-height:44px}
+.sidebar .brand-symbol{font-size:38px;line-height:1}
+.sidebar .brand>span:not(.brand-symbol),.sidebar .small-star,.sidebar-bottom>p{display:none}
+.sidebar nav{display:flex;flex:1;flex-direction:column;align-items:stretch;gap:8px;margin:0;padding:0;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.sidebar .nav-link[data-nav]{position:relative;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:62px;width:100%;padding:10px 3px;border:1px solid transparent;border-radius:15px;color:var(--muted);font-size:10px;line-height:1.4;transition:background .18s,color .18s,border-color .18s}
+.sidebar .nav-link [data-icon]{display:flex}
+.sidebar .nav-link [data-icon] svg{display:block;width:22px;height:22px}
+.sidebar .nav-link:hover{color:var(--text);background:#ffffff06}
+.sidebar .nav-link.active{color:var(--lilac);border-color:#c7b9e72b;background:#c7b9e713}
+.sidebar .nav-link.active::before{content:"";position:absolute;left:-7px;top:19px;width:3px;height:23px;border-radius:3px;background:var(--lilac)}
+.sidebar a:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.sidebar .sidebar-bottom{display:block;margin:14px 0 0;padding:0;flex-shrink:0}
+.sidebar .connection{display:flex;justify-content:center;min-height:12px}
+.sidebar #connection-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.content-shell{margin-left:calc(var(--rail-width) + env(safe-area-inset-left));width:calc(100% - var(--rail-width) - env(safe-area-inset-left));min-width:0;padding:env(safe-area-inset-top) max(36px,env(safe-area-inset-right)) 0 36px}
+.topbar{height:76px}
+.topbar .mobile-brand{display:inline;font-size:13px;color:var(--text);letter-spacing:.12em}
+#main{min-width:0}
+.page-heading{flex-wrap:wrap}
+.page-heading>div{min-width:0}
+.page-heading h1{overflow-wrap:anywhere}
+body[data-page=pet] .page-heading{align-items:center;margin-bottom:23px}
+body[data-page=pet] .page-heading h1{font-size:30px}
+body[data-page=pet] .pet-room{min-height:clamp(420px,calc(100dvh - 270px),600px);background:radial-gradient(ellipse at 50% 75%,#66506438,transparent 65%),linear-gradient(155deg,#292b3c,#242532 65%);box-shadow:inset 0 1px 0 #ffffff05}
+body[data-page=pet] .pet-room::before{content:"";position:absolute;width:340px;height:340px;left:50%;bottom:-80px;transform:translateX(-50%);border:1px solid #c7b9e70c;border-radius:50%;box-shadow:0 0 0 45px #c7b9e703,0 0 0 90px #c7b9e702;pointer-events:none}
+body[data-page=pet] .room-pet{font-size:160px;bottom:64px}
+body[data-page=pet] .room-caption{top:30px;left:32px}
+body[data-page=pet] .room-caption h2{font-size:29px;overflow-wrap:anywhere}
+body[data-page=pet] .room-window{top:42px;right:64px}
+body[data-page=pet] .room-floor{height:116px;background:linear-gradient(#3b3440,#332d38)}
+body[data-page=pet] .room-rug{width:340px;height:85px;bottom:25px}
+body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px solid var(--line);border-radius:19px;background:var(--panel-soft)}
+.install-banner{margin-top:18px}
+.form-grid>.field{min-width:0}
+.field input,.field select,.field textarea{min-width:0;max-width:100%}
+@media(min-width:1450px){.content-shell{padding-left:64px;padding-right:max(64px,env(safe-area-inset-right))}}
+@media(max-width:1100px){
+  :root{--rail-width:78px}
+  .sidebar{padding-left:calc(9px + env(safe-area-inset-left));padding-right:9px}
+  .content-shell{padding-left:26px;padding-right:max(26px,env(safe-area-inset-right))}
+  body[data-page=pet] .room-window{right:36px}
+}
+@media(max-width:760px){
+  :root{--rail-width:62px}
+  .sidebar{padding:calc(14px + env(safe-area-inset-top)) 6px calc(12px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .sidebar .brand{margin-bottom:17px;min-height:38px}
+  .sidebar .brand-symbol{font-size:31px}
+  .sidebar nav{gap:5px}
+  .sidebar .nav-link[data-nav]{min-height:55px;border-radius:12px;font-size:9px;gap:5px;padding:8px 2px}
+  .sidebar .nav-link [data-icon] svg{width:21px;height:21px}
+  .sidebar .nav-link.active::before{left:-3px;top:16px;height:21px;width:2px}
+  .content-shell{padding-left:16px;padding-right:max(16px,env(safe-area-inset-right));padding-bottom:env(safe-area-inset-bottom)}
+  .topbar{height:62px;gap:8px;flex-wrap:wrap;align-content:center;justify-content:space-between}
+  .topbar #today-label{font-size:8px;letter-spacing:0}
+  .topbar .mobile-brand{font-size:11px}
+  .topbar-note{display:none}
+  body[data-page=pet] .page-heading{gap:12px;margin-bottom:18px}
+  body[data-page=pet] .page-heading h1{font-size:25px}
+  body[data-page=pet] .page-heading p{font-size:11px;margin-top:6px}
+  body[data-page=pet] .coin-wallet{padding:5px 10px;font-size:13px}
+  body[data-page=pet] .pet-room{min-height:420px;border-radius:22px}
+  body[data-page=pet] .room-caption{top:22px;left:18px;max-width:calc(100% - 114px)}
+  body[data-page=pet] .room-caption h2{font-size:21px;line-height:1.55}
+  body[data-page=pet] .room-window{right:16px;top:30px}
+  body[data-page=pet] .room-pet{font-size:132px;bottom:64px}
+  body[data-page=pet] .room-rug{width:220px;height:70px}
+  body[data-page=pet] .pet-care{padding:17px 15px;gap:15px}
+  .reward-note{flex-direction:column;gap:9px}
+  .reward-note h2{line-height:1.6}
+  .install-banner{flex-wrap:wrap;padding:12px;gap:9px}
+  .install-banner>div{flex-basis:calc(100% - 58px)}
+  .install-banner>.button{margin-left:53px}
+  .install-banner>.install-dismiss{margin-left:auto}
+  .nudge{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:calc(100vw - var(--rail-width) - env(safe-area-inset-left) - 24px);padding:19px}
+  .nudge-actions{flex-wrap:wrap;gap:10px}
+  .toast{left:calc((100% + var(--rail-width) + env(safe-area-inset-left))/2);bottom:calc(18px + env(safe-area-inset-bottom));width:max-content;max-width:calc(100vw - var(--rail-width) - env(safe-area-inset-left) - 24px);padding:12px 15px}
+  .footer{padding-bottom:24px}
+}
+@media(max-width:600px){
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .plan-summary{grid-template-columns:minmax(0,1fr)}
+  .page-heading h1{font-size:25px}
+  .room-caption .chip{white-space:normal;line-height:1.6}
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .hero-copy{padding:25px 20px}
+  .hero .moon-art{display:none}
+}
+@media(max-height:600px){.sidebar .brand{margin-bottom:8px}.sidebar nav{gap:3px}.sidebar .nav-link[data-nav]{min-height:49px}.sidebar .sidebar-bottom{margin-top:8px}}
+@media(prefers-reduced-motion:reduce){.sidebar .nav-link[data-nav]{transition:none}}

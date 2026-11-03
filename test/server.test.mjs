@@ -1,42 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.mjs';
-import { AppError } from '../ai.mjs';
 import { demoProfile } from '../public/progress.js';
 async function fixture(t,options={}) {
-  const server=createApp({apiKey:'test-key',respond:async()=>({message:'謝謝你說出來。',quickReplies:[],summary:''}),...options});
+  const server=createApp({apiKey:'test-key',dbPath:':memory:',...options});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base=`http://127.0.0.1:${server.address().port}`;
-  return {base,get:p=>fetch(base+p),post:(p,body,headers={})=>fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)})};
+  const registration=await fetch(base+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'test_account',password:'test-password-123'})});
+  const cookie=registration.headers.get('set-cookie').split(';')[0];
+  return {base,get:p=>fetch(base+p,{headers:{Cookie:cookie}}),post:(p,body,headers={})=>fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie,...headers},body:JSON.stringify(body)})};
 }
-const createSession=async f=>(await f.post('/api/sessions',{mood:'reluctant',bedtime:'00:30'})).json();
-test('three turns are enforced on the server and closing invalidates the session',async t=>{
-  const f=await fixture(t),s=await createSession(f);
-  for(let n=1;n<=3;n++){const r=await(await f.post(`/api/sessions/${s.id}/messages`,{text:'今天有點累'})).json();assert.equal(r.turn,n);assert.equal(r.done,n===3);}
-  assert.equal((await f.post(`/api/sessions/${s.id}/messages`,{text:'繼續'})).status,409);
-  assert.equal((await f.post(`/api/sessions/${s.id}/close`,{})).status,200);
-  assert.equal((await f.post(`/api/sessions/${s.id}/messages`,{text:'繼續'})).status,404);
+test('removed bedtime conversation APIs return not found',async t=>{
+  const f=await fixture(t,{apiKey:''});
+  for(const route of ['/api/sessions','/api/sessions/00000000-0000-0000-0000-000000000000/messages','/api/sessions/00000000-0000-0000-0000-000000000000/close']) {
+    const response=await f.post(route,{});
+    assert.equal(response.status,404);
+    assert.equal((await response.json()).code,'NOT_FOUND');
+  }
+  assert.equal((await(await f.get('/api/health')).json()).maxTurns,undefined);
 });
-test('provider failure does not consume a conversation turn',async t=>{
-  let calls=0;
-  const f=await fixture(t,{respond:async()=>{if(++calls===1)throw new AppError(504,'AI_TIMEOUT','測試逾時');return {message:'已恢復',quickReplies:[],summary:''};}}),s=await createSession(f);
-  assert.equal((await f.post(`/api/sessions/${s.id}/messages`,{text:'測試'})).status,504);
-  const r=await(await f.post(`/api/sessions/${s.id}/messages`,{text:'重試'})).json();assert.equal(r.turn,1);
-});
-test('concurrent sends cannot bypass the turn counter',async t=>{
-  let release,entered;
-  const started=new Promise(r=>entered=r),blocked=new Promise(r=>release=r);
-  const f=await fixture(t,{respond:async()=>{entered();await blocked;return{message:'回覆',quickReplies:[],summary:''};}}),s=await createSession(f);
-  const first=f.post(`/api/sessions/${s.id}/messages`,{text:'第一則'});await started;
-  const second=await f.post(`/api/sessions/${s.id}/messages`,{text:'第二則'});assert.equal(second.status,409);release();assert.equal((await(await first).json()).turn,1);
-});
-test('cross-origin spend, malformed mood and empty messages are rejected',async t=>{
+
+test('cross-origin requests and malformed records are rejected',async t=>{
   const f=await fixture(t);
-  assert.equal((await f.post('/api/sessions',{mood:'reluctant',bedtime:'00:30'},{Origin:'https://other.example'})).status,403);
-  assert.equal((await f.post('/api/sessions',{mood:'invented',bedtime:'00:30'})).status,400);
-  const s=await createSession(f);assert.equal((await f.post(`/api/sessions/${s.id}/messages`,{text:' '})).status,400);
+  assert.equal((await f.post('/api/records/validate',{records:[]},{Origin:'https://other.example'})).status,403);
+  assert.equal((await f.post('/api/records/validate',{records:[{date:'invalid'}]})).status,400);
+  assert.equal((await f.post('/api/records/validate',{records:[]})).status,200);
 });
+
 test('static server only serves public files and does not expose secrets',async t=>{
   const f=await fixture(t);
   assert.equal((await f.get('/')).status,200);assert.equal((await f.get('/.env')).status,404);assert.equal((await f.get('/server.mjs')).status,404);

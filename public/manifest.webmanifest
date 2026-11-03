@@ -1,1 +1,17 @@
-{"name":"夜泊 Night Harbor","short_name":"夜泊","lang":"zh-Hant-TW","start_url":"/","display":"standalone","background_color":"#151721","theme_color":"#151721","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "id": "/",
+  "name": "夜泊 Night Harbor",
+  "short_name": "夜泊",
+  "description": "留一點時間給自己，記錄生活與睡眠，替今晚找到溫柔的結尾。",
+  "lang": "zh-Hant-TW",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#151721",
+  "theme_color": "#151721",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

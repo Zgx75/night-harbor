@@ -3,14 +3,16 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "夜泊：給報復性熬夜大學生的三輪 AI 收心原型",
+  "description": "夜泊：大學生的睡眠紀錄、個人化作息與寵物養成原型",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "start": "node server.mjs",
+    "iphone": "node scripts/start-iphone.mjs",
+    "public": "node scripts/start-fixed-url.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check reports.mjs && node --check public/app.js && node --check public/progress.js && node --check public/extras.js && node --check planner.mjs && node --check public/plan-state.js"
+    "check": "node --check server.mjs && node --check accounts.mjs && node --check public/account.js && node --check reports.mjs && node --check public/app.js && node --check public/progress.js && node --check public/extras.js && node --check planner.mjs && node --check public/plan-state.js && node --check public/pwa.js && node --check public/sw.js && node --check public/records.js && node --check scripts/start-iphone.mjs && node --check scripts/start-fixed-url.mjs"
   }
 }

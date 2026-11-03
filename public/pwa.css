@@ -1,0 +1,30 @@
+[hidden]{display:none!important}
+.install-banner,.update-banner{display:flex;align-items:center;gap:14px;padding:16px 20px;margin:0 0 22px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+.install-banner img,.install-dialog-heading img{border-radius:12px;flex-shrink:0}
+.install-banner>div{flex:1;min-width:0}
+.install-banner strong{font-size:14px;font-weight:500}
+.install-banner p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.install-banner .button{flex-shrink:0}
+.install-dismiss{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:24px;line-height:1;min-width:44px;min-height:44px;padding:8px}
+.install-dismiss:focus-visible{outline:2px solid var(--lilac);outline-offset:2px;border-radius:8px}
+.offline-banner{padding:14px 18px;margin:0 0 22px;border:1px solid var(--line);border-radius:14px;color:var(--gold);background:var(--panel-soft);font-size:13px}
+.update-banner{font-size:13px;flex-wrap:wrap}
+.update-banner span{flex:1;min-width:180px}
+#install-dialog{width:calc(100% - 32px);max-width:460px;max-height:calc(100dvh - 48px);overflow:auto;padding:28px;text-align:left}
+.install-dialog-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+#install-dialog h2{font-size:23px;line-height:1.5;margin:8px 0 14px}
+#install-dialog>p{line-height:1.8}
+.install-steps{padding-left:24px;margin:20px 0}
+.install-steps li{padding-left:5px;margin-bottom:12px}
+#install-dialog .notice{font-size:12px;color:var(--muted)}
+#finish-install{margin-top:14px;width:100%}
+@media(max-width:760px){
+  .content-shell{padding-top:env(safe-area-inset-top)}
+  .install-banner{gap:10px;padding:12px;margin-bottom:18px}
+  .install-banner strong{font-size:12px}
+  .install-banner p{font-size:10px}
+  .install-banner .button{padding:8px 12px;font-size:12px}
+  .install-banner .install-dismiss{margin-right:-8px;min-width:32px}
+  #install-dialog{padding:23px}
+}
+@media(display-mode:standalone){html{overscroll-behavior-y:none}.install-banner{display:none!important}}
