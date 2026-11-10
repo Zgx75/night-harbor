@@ -54,7 +54,8 @@ test('the installable shell is complete, works from cache and never caches API d
   await t.test('all local scripts, styles and iPhone PNG icons can load', async () => {
     const shell = [...stores.values()][0];
     for (const name of await readdir(new URL('../public/', import.meta.url))) {
-      if (/\.(js|css)$/.test(name) && name !== 'sw.js') assert.ok(shell.has(`/${name}`), `${name} missing from offline shell`);
+      // Recovery must fetch current code even when the installed shell is stale.
+      if (/\.(js|css)$/.test(name) && !['sw.js','update.js'].includes(name)) assert.ok(shell.has(`/${name}`), `${name} missing from offline shell`);
     }
     const manifest = await shell.get('/manifest.webmanifest').clone().json();
     assert.equal(manifest.display, 'standalone');
@@ -76,7 +77,7 @@ test('the installable shell is complete, works from cache and never caches API d
     let response;
     events.get('fetch')({ request: new Request(`${base}/`), respondWith(value) { response = value; } });
     assert.match(await (await response).text(), /<title>夜泊/);
-    for (const [url, method] of [[`${base}/api/health`, 'GET'], [`${base}/api/plan`, 'POST'], ['https://other.example/app.js', 'GET']]) {
+    for (const [url, method] of [[`${base}/api/health`, 'GET'], [`${base}/api/plan`, 'POST'], [`${base}/update.html`, 'GET'], [`${base}/update.js`, 'GET'], ['https://other.example/app.js', 'GET']]) {
       let intercepted = false;
       events.get('fetch')({ request: new Request(url, { method }), respondWith() { intercepted = true; } });
       assert.equal(intercepted, false, `${method} ${url} should use the network`);

@@ -13,6 +13,6 @@
     "public": "node scripts/start-fixed-url.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check accounts.mjs && node --check public/account.js && node --check reports.mjs && node --check public/app.js && node --check public/progress.js && node --check public/extras.js && node --check planner.mjs && node --check public/plan-state.js && node --check public/pwa.js && node --check public/sw.js && node --check public/records.js && node --check scripts/start-iphone.mjs && node --check scripts/start-fixed-url.mjs"
+    "check": "node --check server.mjs && node --check accounts.mjs && node --check social.mjs && node --check rewards.mjs && node --check public/social.js && node --check public/account.js && node --check reports.mjs && node --check public/app.js && node --check public/progress.js && node --check public/extras.js && node --check planner.mjs && node --check public/plan-state.js && node --check public/pwa.js && node --check public/update.js && node --check public/sw.js && node --check public/records.js && node --check scripts/start-iphone.mjs && node --check scripts/start-fixed-url.mjs"
   }
 }

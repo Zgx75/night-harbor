@@ -98,7 +98,7 @@ export async function openAccount() {
   return ready;
 }
 
-export function createProfileSync(account) {
+export function createProfileSync(account, { onSaved } = {}) {
   const key = cacheKey(account.user.id);
   let revision = account.revision, snapshot = account.profile, pending = account.pending;
   let conflict = account.conflict, expired = false, generation = 0, running, timer, closing = false;
@@ -124,7 +124,12 @@ export function createProfileSync(account) {
       try {
         const result = await accountRequest('/api/profile', { profile: sent, revision });
         revision = result.revision;
-        if (generation === version) { pending = false; lastSaved = JSON.stringify(sent); }
+        if (generation === version) {
+          pending = false;
+          snapshot = result.profile || sent;
+          lastSaved = JSON.stringify(snapshot);
+          if(result.profile)onSaved?.(result.profile);
+        }
         try { cache(); } catch { /* Server save succeeded; keep the current in-memory revision. */ }
       } catch (error) {
         conflict = error.code === 'PROFILE_CONFLICT';

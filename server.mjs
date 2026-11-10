@@ -63,10 +63,17 @@ export function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process
         if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { version:'3.0.0', configured: Boolean(apiKey?.trim()), provider: 'Gemini', model });
         if (req.method === 'GET' && url.pathname === '/api/auth/session') return send(res, 200, { user: accounts.currentUser(req) });
         if (req.method === 'GET' && url.pathname === '/api/profile') return send(res, 200, accounts.profile(accounts.requireUser(req).id));
+        const socialPath=url.pathname==='/api/social'?'':url.pathname.startsWith('/api/social/')?url.pathname.slice('/api/social/'.length):null;
         const isAuth = ['/api/auth/login', '/api/auth/register', '/api/auth/logout'].includes(url.pathname);
         const knownOperation = ['/api/profile', '/api/records/validate', '/api/plan', '/api/advice', '/api/reports', '/api/reports/advice'].includes(url.pathname);
-        if (!isAuth && !knownOperation && url.pathname !== '/api/knowledge') throw new AppError(404, 'NOT_FOUND', '找不到這個操作。');
+        if (!isAuth && !knownOperation && url.pathname !== '/api/knowledge' && socialPath===null) throw new AppError(404, 'NOT_FOUND', '找不到這個操作。');
         const user = isAuth ? null : accounts.requireUser(req);
+        if(req.method==='GET'&&socialPath!==null) {
+          if(socialPath==='')return send(res,200,accounts.social.dashboard(user.id));
+          if(socialPath==='search')return send(res,200,accounts.social.search(user.id,url.searchParams.get('q')));
+          if(socialPath==='leaderboard')return send(res,200,accounts.social.leaderboard(user.id,url.searchParams.get('scope')||'friends',url.searchParams.get('metric')||'onTime'));
+          throw new AppError(404,'NOT_FOUND','找不到這個社群操作。');
+        }
         if (req.method === 'GET' && url.pathname === '/api/knowledge') return send(res, 200, { sources: knowledge });
         if (req.method !== 'POST') throw new AppError(405, 'METHOD', '此操作不支援這個方法。');
         const data = await readJson(req, url.pathname === '/api/profile' ? 512000 : 48000);
@@ -75,6 +82,7 @@ export function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process
         const limit = limits.get(ip) || { started: now(), count: 0 };
         if (++limit.count > 80) throw new AppError(429, 'RATE_LIMIT', '操作有些頻繁，稍後再試。');
         limits.set(ip, limit);
+        if(socialPath!==null)return send(res,200,accounts.social.mutate(user.id,socialPath,data));
         if (url.pathname === '/api/auth/login' || url.pathname === '/api/auth/register') {
           const authLimit = authLimits.get(ip) || { started: now(), count: 0 };
           if (++authLimit.count > 20) throw new AppError(429, 'AUTH_RATE_LIMIT', '登入或註冊次數較多，請十五分鐘後再試。');

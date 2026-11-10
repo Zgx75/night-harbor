@@ -30,19 +30,21 @@ export function snapshotTargets(existing,points,now=Date.now()) {
 }
 const avg = a => a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 export function formatClock(m) { if(m==null)return '—';m=Math.round(m);return `${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
-export function createEconomy() {return {pet:null,credits:[],transactions:[],inventory:[],equipped:{},affection:50};}
+export function createEconomy() {return {pet:null,credits:[],bonusCredits:[],transactions:[],inventory:[],equipped:{},affection:50};}
 export function normaliseEconomy(value) {
   const e=createEconomy();if(!value||typeof value!=='object')return e;
   if(value.pet&&PETS.some(p=>p.id===value.pet.id))e.pet={id:value.pet.id,name:String(value.pet.name||'小夥伴').slice(0,16)};
   const seen=new Set();
   e.credits=(Array.isArray(value.credits)?value.credits:[]).filter(c=>c&&/^\d{4}-\d{2}-\d{2}$/.test(c.night)&&!seen.has(c.night)&&seen.add(c.night)).map(c=>({...c,amount:20}));
+  const bonusSeen=new Set();
+  e.bonusCredits=(Array.isArray(value.bonusCredits)?value.bonusCredits:[]).filter(c=>c&&typeof c.id==='string'&&!bonusSeen.has(c.id)&&bonusSeen.add(c.id)&&['improvement','streak','group'].includes(c.type)&&Number.isSafeInteger(c.amount)&&c.amount>=0&&c.amount<=10000000).map(c=>({...c}));
   e.transactions=(Array.isArray(value.transactions)?value.transactions:[]).filter(t=>t&&Number.isInteger(t.cost)&&t.cost>0);
   e.inventory=[...new Set((Array.isArray(value.inventory)?value.inventory:[]).filter(id=>FURNITURE.some(f=>f.id===id)))];
   for(const f of FURNITURE)if(value.equipped?.[f.slot]===f.id&&e.inventory.includes(f.id))e.equipped[f.slot]=f.id;
   e.affection=Number.isFinite(value.affection)?Math.max(0,Math.min(100,value.affection)):50;
   return e;
 }
-export const balance = e => e.credits.length*20-e.transactions.reduce((n,t)=>n+t.cost,0);
+export const balance = e => e.credits.length*20+(e.bonusCredits||[]).reduce((n,c)=>n+c.amount,0)-e.transactions.reduce((n,t)=>n+t.cost,0);
 export const level = e => 1+Math.floor(e.credits.length/4);
 export function assessNight(record,targets,now=Date.now()) {
   if(!record)return {status:'missing',label:'還沒回報',eligible:false};

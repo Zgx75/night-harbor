@@ -1,9 +1,9 @@
 // Bump the version whenever the app shell changes. Keep an entire release together.
-const CACHE = 'night-harbor-shell-v4';
+const CACHE = 'night-harbor-shell-v6';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/type.css', '/extras.css', '/pwa.css', '/layout.css',
   '/app.js', '/extras.js', '/progress.js', '/timing.js', '/plan-state.js',
-  '/records.js', '/pwa.js', '/account.js', '/account.css', '/manifest.webmanifest', '/icon.svg',
+  '/records.js', '/pwa.js', '/account.js', '/account.css', '/social.js', '/social.css', '/manifest.webmanifest', '/icon.svg',
   '/icons/apple-touch-icon.png', '/icons/icon-192.png', '/icons/icon-512.png'
 ];
 self.addEventListener('install', event => {

@@ -3,6 +3,50 @@ const standalone = () => matchMedia('(display-mode: standalone)').matches || nav
 const dialog = $('#install-dialog');
 let registration;
 let updating = false;
+let needsReload = false;
+let seenController = Boolean(navigator.serviceWorker?.controller);
+let applying = false;
+let checking;
+let lastCheck = 0;
+const dirtyForms = new Set();
+
+// A form remains protected until a successful action replaces it or the user leaves it.
+for (const type of ['input','change']) document.addEventListener(type,event=>{
+  const form=event.target.closest?.('form');
+  if(form)dirtyForms.add(form);
+},true);
+document.addEventListener('reset',event=>dirtyForms.delete(event.target),true);
+function canUpdate() {
+  if(document.visibilityState!=='visible'||!navigator.onLine||document.querySelector('dialog[open]'))return false;
+  if(document.activeElement?.matches('textarea,select,[contenteditable="true"],input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"])'))return false;
+  for(const form of dirtyForms){if(form.isConnected&&!form.closest('[hidden]'))return false;dirtyForms.delete(form);}
+  const guard=window.nightHarborUpdates;
+  return guard?guard.canUpdate():document.body.dataset.auth==='signed-out';
+}
+async function applyUpdate() {
+  if(applying||(!registration?.waiting&&!needsReload)||!canUpdate())return;
+  applying=true;
+  let activated=false;
+  try {
+    if(window.nightHarborUpdates&&!await window.nightHarborUpdates.prepare())return;
+    // User input may have changed while a pending account save was in flight.
+    if(!canUpdate())return;
+    if(needsReload){needsReload=false;location.reload();return;}
+    if(registration.waiting){updating=true;activated=true;registration.waiting.postMessage({type:'ACTIVATE_UPDATE'});}
+  } catch { showUpdate(); }
+  finally { applying=false;if(activated&&needsReload)applyUpdate(); }
+}
+function checkUpdates() {
+  if(!registration||!navigator.onLine||document.visibilityState!=='visible')return Promise.resolve();
+  if(checking)return checking;
+  if(Date.now()-lastCheck<1000)return applyUpdate();
+  lastCheck=Date.now();
+  checking=registration.update().then(()=>{
+    if(registration.waiting)showUpdate();
+    return applyUpdate();
+  }).catch(()=>{}).finally(()=>{checking=null;});
+  return checking;
+}
 
 function updateInstallBanner() {
   let dismissed = false;
@@ -27,19 +71,20 @@ $('#dismiss-install').addEventListener('click', () => {
   try { sessionStorage.setItem('night-harbor-install-dismissed', 'yes'); } catch { /* Hide for this page anyway. */ }
   $('#install-banner').hidden = true;
 });
-window.addEventListener('online', updateConnection);
+window.addEventListener('online', () => { updateConnection(); checkUpdates(); });
 window.addEventListener('offline', updateConnection);
 window.addEventListener('appinstalled', updateInstallBanner);
 matchMedia('(display-mode: standalone)').addEventListener('change', updateInstallBanner);
 updateInstallBanner();
 updateConnection();
 
-function showUpdate() { $('#update-banner').hidden = false; }
-$('#update-app').addEventListener('click', () => {
-  if (!registration?.waiting) return;
-  updating = true;
-  registration.waiting.postMessage({ type: 'ACTIVATE_UPDATE' });
-});
+function showUpdate() { $('#update-banner').hidden = false; applyUpdate(); }
+$('#update-app').addEventListener('click',applyUpdate);
+window.addEventListener('pageshow',checkUpdates);
+window.addEventListener('night-harbor:update-ready',applyUpdate);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdates();});
+setInterval(()=>{if(registration?.waiting||needsReload)applyUpdate();},1500);
+setInterval(checkUpdates,60000);
 async function registerOffline() {
   const status = $('#pwa-storage-status');
   if (!window.isSecureContext) {
@@ -51,7 +96,8 @@ async function registerOffline() {
     return;
   }
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (updating) location.reload();
+    if(seenController||updating){needsReload=true;showUpdate();}
+    seenController=true;
   });
   try {
     registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
@@ -65,6 +111,7 @@ async function registerOffline() {
     });
     await navigator.serviceWorker.ready;
     status.textContent = '介面已可離線載入。登入需要後端連線；已登入頁面的變更可先暫存在此裝置，連線後再同步。';
+    checkUpdates();
   } catch {
     status.textContent = '目前無法準備離線啟動，仍可連線使用。請確認有足夠的儲存空間，再重新開啟夜泊。';
   }

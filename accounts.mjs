@@ -7,6 +7,7 @@ import { AppError } from './ai.mjs';
 import { cleanRecords, isTime } from './domain.mjs';
 import { cleanTargets } from './reports.mjs';
 import { normaliseEconomy } from './public/progress.js';
+import { createSocialStore } from './social.mjs';
 
 const derive = promisify(scrypt);
 const HASH_OPTIONS = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
@@ -63,6 +64,7 @@ export function createAccountStore({ filename, now = Date.now } = {}) {
     );
     CREATE INDEX IF NOT EXISTS session_expiry ON account_sessions(expires_at);`);
   let hashing = 0;
+  const social = createSocialStore({ db, now });
   async function hash(password, salt) {
     if (hashing >= 2) throw new AppError(503, 'AUTH_BUSY', '目前登入人數較多，請稍後再試。');
     hashing++;
@@ -135,10 +137,17 @@ export function createAccountStore({ filename, now = Date.now } = {}) {
   }
   function saveProfile(userId, data) {
     if (!Number.isSafeInteger(data.revision) || data.revision < 0) throw new AppError(400, 'PROFILE_INPUT', '資料版本格式有誤。');
-    const payload = JSON.stringify(cleanProfile(data.profile));
-    const result = db.prepare('UPDATE profiles SET payload=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').run(payload, now(), userId, data.revision);
-    if (!result.changes) throw new AppError(409, 'PROFILE_CONFLICT', '另一個裝置已更新資料。請先備份目前變更，再讀取帳號最新資料。');
-    return profile(userId);
+    const clean = cleanProfile(data.profile);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const previous = profile(userId);
+      if(previous.revision!==data.revision)throw new AppError(409, 'PROFILE_CONFLICT', '另一個裝置已更新資料。請先備份目前變更，再讀取帳號最新資料。');
+      social.reconcile(userId,clean,previous.profile);
+      db.prepare('UPDATE profiles SET payload=?,revision=revision+1,updated_at=? WHERE user_id=?').run(JSON.stringify(clean),now(),userId);
+      social.afterProfileSave(userId);
+      db.exec('COMMIT');
+      return profile(userId);
+    } catch(error) { db.exec('ROLLBACK');throw error; }
   }
-  return { register, login, currentUser, requireUser, cookie, logout, profile, saveProfile, close: () => db.close() };
+  return { register, login, currentUser, requireUser, cookie, logout, profile, saveProfile, social, close: () => db.close() };
 }

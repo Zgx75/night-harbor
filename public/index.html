@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/pwa.css">
   <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/account.css">
+  <link rel="stylesheet" href="/social.css">
   <script type="module" src="/app.js"></script>
   <script type="module" src="/pwa.js"></script>
 </head>
@@ -50,6 +51,7 @@
         <a href="#pet" class="nav-link" data-nav="pet" aria-label="寵物首頁" title="寵物首頁"><span data-icon="pet"></span><span class="nav-text">夥伴</span></a>
         <a href="#logs" class="nav-link" data-nav="logs" aria-label="生活紀錄" title="生活紀錄"><span data-icon="journal"></span><span class="nav-text">紀錄</span></a>
         <a href="#reports" class="nav-link" data-nav="reports" aria-label="睡眠回報" title="睡眠回報"><span data-icon="recap"></span><span class="nav-text">回報</span></a>
+        <a href="#social" class="nav-link" data-nav="social" aria-label="好友與小組共養" title="好友與小組共養"><span data-icon="friends"></span><span class="nav-text">好友</span></a>
         <a href="#plan" class="nav-link" data-nav="plan" aria-label="作息路徑" title="作息路徑"><span data-icon="route"></span><span class="nav-text">作息</span></a>
         <a href="#knowledge" class="nav-link" data-nav="knowledge" aria-label="睡眠知識" title="睡眠知識"><span data-icon="sparkles"></span><span class="nav-text">知識</span></a>
         <a href="#tonight" class="nav-link" data-nav="tonight" aria-label="睡前收尾" title="睡前收尾"><span data-icon="moon"></span><span class="nav-text">收尾</span></a>
@@ -67,7 +69,7 @@
         <button class="install-dismiss" type="button" id="dismiss-install" aria-label="暫時隱藏安裝提示">×</button>
       </section>
       <p class="offline-banner" id="offline-banner" role="status" hidden>目前離線。已登入頁面中的變更會先暫存在此裝置，恢復連線後再同步；重新登入與 AI 功能需要連線。</p>
-      <section class="update-banner" id="update-banner" role="status" hidden><span>夜泊有新版本，完成手上的操作後再更新。</span><button class="button secondary small" id="update-app" type="button">更新並重新開啟</button></section>
+      <section class="update-banner" id="update-banner" role="status" hidden><span>新版已準備好，完成手上的操作並同步資料後會自動更新。</span><button class="button secondary small" id="update-app" type="button">檢查並更新</button></section>
       <main id="main" tabindex="-1"></main>
       <footer class="footer"><span>一個溫柔的句點，也是一個新的開始。</span><button class="text-button" type="button" data-install-app>iPhone 安裝說明</button><span>NIGHT HARBOR © 2026</span></footer>
     </div>

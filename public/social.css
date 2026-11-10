@@ -1,0 +1,42 @@
+.social-tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+.social-tabs [aria-selected=true],.social-actions [aria-pressed=true]{border-color:var(--lilac);color:var(--lilac);background:#c7b9e716}
+#social-page .panel{margin-bottom:22px;min-width:0}
+#social-page h2{line-height:1.6;margin-bottom:16px}
+#social-page .section-heading{margin-top:0;gap:12px;flex-wrap:wrap}
+.social-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px}
+.social-grid>.panel{margin-bottom:0!important}
+.social-grid+.panel,.social-grid+section{margin-top:22px}
+.social-person{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 0;border-bottom:1px solid var(--line);min-width:0}
+.social-person:last-child{border-bottom:0}
+.social-person>div:first-child{min-width:0}
+.social-person strong,.social-person small{display:block;overflow-wrap:anywhere}
+.social-person small,.social-handle{color:var(--muted);font-size:12px;margin-top:5px}
+.social-person p{font-size:13px;line-height:1.8}
+.social-status{display:inline-block;color:var(--gold);font-size:12px;margin-top:8px}
+.social-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.social-inline,.social-filters{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.social-inline .field{flex:1;min-width:min(100%,180px);margin-bottom:0}
+.social-filters .field{flex:1;min-width:min(100%,180px);margin-bottom:0}
+#social-page form>.field{margin-bottom:17px}
+.social-empty{color:var(--muted);padding:24px 0;font-size:13px;line-height:1.9}
+.social-invite{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px;font-size:13px}
+.social-invite code{color:var(--gold);font-size:19px;letter-spacing:.08em;overflow-wrap:anywhere}
+.social-pet-room{min-height:320px;margin-bottom:20px}
+.social-shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:14px;margin-top:22px}
+.social-shop article{display:flex;align-items:center;flex-direction:column;gap:10px;padding:18px 10px;background:var(--panel-soft);border-radius:14px;text-align:center}
+.social-shop strong{font-size:13px}
+.social-furniture{font-size:34px}
+.social-post{padding:22px 0;border-bottom:1px solid var(--line)}
+.social-post:last-child{border:0}
+.social-post>div:first-child{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.social-post small{color:var(--muted);font-size:12px}
+.social-post>p{margin:18px 0;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere}
+.social-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.social-stats small{display:block;font-size:12px;color:var(--muted)}
+.social-stats strong{display:block;font-size:28px;color:var(--gold);margin-top:14px}
+.social-milestone{text-align:center;padding:20px 10px;background:var(--panel-soft);border-radius:14px}
+.social-milestone>span{font-size:35px}
+.social-milestone h3{font-size:15px;margin:12px 0}
+.social-milestone small{color:var(--muted)}
+.social-handle{display:block}
+@media(max-width:760px){.social-person{align-items:flex-start;flex-wrap:wrap}.social-person>.social-actions{width:100%}.social-stats{grid-template-columns:1fr}.social-stats .panel{margin-bottom:0!important}.social-stats{margin-bottom:22px}.social-stats strong{font-size:24px}.social-tabs{gap:7px}.social-tabs .button{padding:10px 12px}.social-invite code{font-size:16px}.social-pet-room .room-pet{font-size:100px}.social-shop{grid-template-columns:repeat(2,minmax(0,1fr))}}

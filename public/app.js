@@ -4,10 +4,12 @@ import { createEconomy, normaliseEconomy, assessNight } from './progress.js';
 import { createExtras } from './extras.js';
 import {planInputKey,cachedPlan,lockedTarget,targetPlan} from './plan-state.js';
 import { openAccount, createProfileSync } from './account.js';
+import { createSocial } from './social.js';
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const icons = {
+  friends: '<circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5"/>',
   pet: '<path d="M8 14c-3 4 0 7 4 4 4 3 7 0 4-4l-2-2a3 3 0 0 0-4 0Z"/><ellipse cx="5" cy="9" rx="2" ry="3"/><ellipse cx="10" cy="5" rx="2" ry="3"/><ellipse cx="16" cy="5" rx="2" ry="3"/><ellipse cx="21" cy="10" rx="2" ry="3"/>',
   recap: '<path d="M4 20V4m0 16h17M8 16v-5m5 5V7m5 9V3"/>',
   moon: '<path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/>',
@@ -25,7 +27,11 @@ const icons = {
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.moon}</svg>`;
 $$('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
 const account = await openAccount();
-const profileSync = createProfileSync(account);
+const profileSync = createProfileSync(account,{onSaved:profile=>{
+  if(state.demo){if(state.realBackup)state.realBackup.economy=normaliseEconomy(profile.economy);return;}
+  state.economy=normaliseEconomy(profile.economy);
+  if(view()==='pet'&&!document.activeElement?.matches('input,textarea,select'))render();
+}});
 const defaults = { currentBedtime: '', targetBedtime: '00:30', wakeTime: '08:30', reminders: false, saveClosures: true };
 const initial = account.profile || {};
 const state = {
@@ -50,7 +56,7 @@ function persist() {
   return saved;
 }
 async function api(path, body) {
-  if (!navigator.onLine) throw new Error('目前離線，AI 功能需要恢復連線；生活紀錄仍可保存在這台裝置。');
+  if (!navigator.onLine) throw new Error('目前離線，AI 與好友共養功能需要連線；生活紀錄仍可暫存在這台裝置。');
   let response;
   try { response = await fetch(path, { method: body === undefined ? 'GET':'POST', headers: body === undefined ? {} : { 'Content-Type':'application/json' }, body:body === undefined ? undefined : JSON.stringify(body), signal:AbortSignal.timeout(38000) }); }
   catch { throw new Error('目前連線沒有回應，請確認程式仍在執行後再試。'); }
@@ -59,10 +65,16 @@ async function api(path, body) {
   if (!response.ok) throw Object.assign(new Error(data.error || '剛剛有個小問題，請重試。'), { code:data.code });
   return data;
 }
-function view() { const name = location.hash.slice(1); return ['tonight','pet','reports','logs','knowledge','plan','settings'].includes(name) ? name : 'pet'; }
+function view() { const name = location.hash.slice(1); return ['tonight','pet','reports','logs','knowledge','plan','settings','social'].includes(name) ? name : 'pet'; }
 function heading(kicker, title, subtitle, extra='') { return `<div class="page-heading"><div><p class="eyebrow">${kicker}</p><h1>${title}</h1><p>${subtitle}</p></div>${extra}</div>`; }
 const moonArt = `<svg class="moon-art" viewBox="0 0 380 330" fill="none" aria-hidden="true"><circle cx="204" cy="157" r="105" stroke="#c7b9e7" stroke-opacity=".09"/><circle cx="204" cy="157" r="134" stroke="#c7b9e7" stroke-opacity=".06" stroke-dasharray="2 9"/><path d="M232 82a75 75 0 1 0 43 124 77 77 0 0 1-43-124Z" fill="#e5ce9e"/><path d="M245 93a69 69 0 0 0 24 100" stroke="#151721" stroke-opacity=".1" stroke-width="3"/><circle cx="164" cy="162" r="7" fill="#151721" fill-opacity=".035"/><circle cx="180" cy="194" r="11" fill="#151721" fill-opacity=".035"/><path d="m108 71 2 7 7 2-7 2-2 7-2-7-7-2 7-2Zm193 57 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z" fill="#c7b9e7"/><circle cx="264" cy="52" r="2" fill="#e5ce9e"/><circle cx="78" cy="160" r="2" fill="#c7b9e7"/><circle cx="301" cy="221" r="2" fill="#e5ce9e"/><circle cx="119" cy="247" r="1.5" fill="#c7b9e7"/><path d="M85 265c42-12 74 12 111 0s66-5 93 2M106 279c34-6 53 7 85 0s47-4 66 1" stroke="#c7b9e7" stroke-opacity=".19" stroke-linecap="round"/><path d="M178 62v5m-2.5-2.5h5" stroke="#e5ce9e" stroke-opacity=".5"/></svg>`;
 const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan});
+const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user});
+window.nightHarborUpdates={
+  canUpdate:()=>!state.demo&&!state.adviceBusy&&!state.reportBusy&&!state.planBusy&&state.flow!=='ritual'&&social.canUpdate(),
+  prepare:()=>profileSync.flush()
+};
+window.dispatchEvent(new Event('night-harbor:update-ready'));
 function homeHTML() {
   const hour=new Date().getHours();
   const greeting=hour<6?'夜深了，慢慢來。':hour<12?'早安，今天慢慢來。':hour<18?'午安，留點時間給自己。':'晚上好，慢慢來。';
@@ -108,10 +120,11 @@ function render() {
   $$('.nav-link').forEach(a => { a.classList.toggle('active',a.dataset.nav===page); if(a.dataset.nav===page) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   let html;
   if (page==='tonight') html = state.flow==='ritual'?ritualHTML():state.flow==='done'?doneHTML():homeHTML();
-  else html = ({ pet:extras.petHTML, reports:extras.reportsHTML, logs:logsHTML, knowledge:knowledgeHTML, plan:planHTML, settings:settingsHTML })[page]();
+  else html = ({ pet:extras.petHTML, reports:extras.reportsHTML, logs:logsHTML, knowledge:knowledgeHTML, plan:planHTML, settings:settingsHTML, social:social.html })[page]();
   $('#main').innerHTML = (state.demo?'<section class="demo-banner"><span><strong>示範模式</strong> · 寵物、金幣與兩週紀錄皆為虛構，操作不會寫入原本資料。</span><button class="button secondary small" id="exit-demo">回到我的資料</button></section>':'') + html;
   bind(page);
   extras.bind(page);
+  social.bind();
 }
 
 function listen(selector, type, fn) { $(selector)?.addEventListener(type,fn); }
@@ -239,13 +252,15 @@ function checkNudge() {
   if(canNudge({enabled:state.settings.reminders,visible:document.visibilityState==='visible',flow:state.flow,handled:state.nudgeDate===nightDate(),snoozedUntil:state.snoozedUntil,lastActivity:state.lastActivity,point,now:Date.now()})){state.nudgeDate=nightDate();showNudge();}
 }
 $('#today-label').textContent=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
-window.addEventListener('hashchange',()=>{render();window.scrollTo({top:0});});
+window.addEventListener('hashchange',()=>{render();if(view()==='social')social.refresh();window.scrollTo({top:0});});
 for(const type of ['pointerdown','keydown','touchstart'])document.addEventListener(type,()=>state.lastActivity=Date.now(),{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){state.lastActivity=Date.now();checkNudge();}});
 setInterval(()=>{if(state.lastPlanDate!==nightDate()){updatePlan().then(()=>{if(view()==='plan'||(view()==='tonight'&&state.flow==='home'))render();checkNudge();}).catch(()=>{});}else checkNudge();},30000);
 for(const [date,t] of Object.entries(state.targets))if(date>nightDate()&&t.source!=='gemini')delete state.targets[date];
 persist();
 render();
+if(view()==='social')social.refresh();
+setInterval(()=>{if(view()==='social'&&document.visibilityState==='visible')social.refresh({quiet:true});},30000);
 Promise.allSettled([api('/api/health'),api('/api/knowledge'),updatePlan()]).then(results=>{
   if(results[0].status==='fulfilled')state.health=results[0].value;
   if(results[1].status==='fulfilled')state.knowledge=results[1].value.sources;

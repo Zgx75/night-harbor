@@ -102,3 +102,13 @@ test('offline changes stay under the current account and can sync after reconnec
   assert.equal(JSON.parse(env.storage.get('night-harbor-account-account-one')).pending, false);
   assert.equal(JSON.parse(env.storage.get('night-harbor-account-other-user')).revision, 9);
 });
+
+test('server-settled bonus coins replace the local draft and reach the current UI without losing its profile',async t=>{
+  let delivered;
+  const canonical={records:[{date:'2026-11-10',fatigue:2}],economy:{credits:[],bonusCredits:[{id:'streak:3',type:'streak',amount:15}]}};
+  const env=environment(t,async()=>response({revision:1,profile:canonical}));
+  const sync=createProfileSync(account({}),{onSaved:value=>{delivered=value;}});
+  sync.save({records:canonical.records,economy:{credits:[],bonusCredits:[]}});assert.equal(await sync.flush(),true);
+  assert.deepEqual(delivered,canonical);
+  const cached=JSON.parse(env.storage.get('night-harbor-account-account-one'));assert.deepEqual(cached.profile,canonical);assert.equal(cached.pending,false);
+});
