@@ -9,6 +9,8 @@ import { cleanTargets } from './reports.mjs';
 import { normaliseEconomy } from './public/progress.js';
 import { createSocialStore } from './social.mjs';
 import { cleanOnboarding } from './public/onboarding.js';
+import { cleanFeedback, cleanWeeklyRecap, cleanMonthlyRecap } from './public/responses.js';
+import { cleanSurveys } from './public/factor-survey.js';
 
 const derive = promisify(scrypt);
 const HASH_OPTIONS = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
@@ -47,7 +49,19 @@ export function cleanProfile(value) {
   let onboarding;
   try { onboarding = cleanOnboarding(value.onboarding ?? null); }
   catch (error) { if (error.code === 'ONBOARDING') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
-  return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan, onboarding };
+  let petFeedback;
+  try { petFeedback = cleanFeedback(value.petFeedback ?? null); }
+  catch (error) { if (error.code === 'FEEDBACK') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
+  let weeklyRecap;
+  try { weeklyRecap = cleanWeeklyRecap(value.weeklyRecap ?? null); }
+  catch (error) { if (error.code === 'WEEKLY_RECAP') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
+  let monthlyRecap;
+  try { monthlyRecap = cleanMonthlyRecap(value.monthlyRecap ?? null); }
+  catch (error) { if (error.code === 'MONTHLY_RECAP') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
+  let factorSurveys;
+  try { factorSurveys = cleanSurveys(value.factorSurveys ?? []); }
+  catch (error) { if (error.code === 'FACTOR_SURVEY') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
+  return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan, onboarding, petFeedback, factorSurveys, weeklyRecap, monthlyRecap };
 }
 
 export function createAccountStore({ filename, now = Date.now } = {}) {

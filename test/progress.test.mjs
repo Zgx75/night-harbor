@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEconomy,petTransaction,awardNight,balance,assessNight,weeklyReport,dailyReport,demoProfile,addDays,factorClues,snapshotTargets } from '../public/progress.js';
+import { createEconomy,petTransaction,awardNight,balance,assessNight,demoProfile,addDays,snapshotTargets } from '../public/progress.js';
 import {cleanRecords} from '../domain.mjs';
 import {makePlan} from '../domain.mjs';
-import {reportData,reportQuestion} from '../reports.mjs';
+import {cleanTargets} from '../reports.mjs';
 const now=Date.parse('2026-10-15T12:00:00+08:00');
 const targets={'2026-10-14':{bedtime:'00:30',createdAt:'2026-10-14T18:00:00+08:00'}};
 const row={date:'2026-10-15',bedAt:'00:40',sleepAt:'02:00',insomnia:'yes',sleepQuality:2};
@@ -44,28 +44,11 @@ test('new sleep fields validate, retain unknowns, and reject impossible time ord
   const r=cleanRecords([row])[0];assert.equal(r.sleepQuality,2);assert.equal(r.screenMinutes,null);assert.equal(r.napMinutes,null);
   for(const patch of [{sleepQuality:0},{screenMinutes:61},{napMinutes:-1},{insomnia:'diagnosed'},{bedAt:'02:30'}])assert.throws(()=>cleanRecords([{...row,...patch}]));
 });
-test('daily factors use preceding-day caffeine/exercise/nap, and never infer missing behavior',()=>{
-  const records=cleanRecords([{date:'2026-10-14',caffeineAt:'19:00',exerciseAt:'23:50',exerciseIntensity:'vigorous',napMinutes:45},{...row,screenMinutes:30,mood:4,caffeineAt:'08:00'}]);
-  const d=dailyReport(records,targets,'2026-10-15',null,now);
-  assert.equal(d.factors.length,5);assert.ok(d.factors.find(f=>f.id==='caffeine').evidence.includes('19:00'));assert.equal(d.factors.find(f=>f.id==='exercise').flag,true);
-  assert.equal(factorClues([row],row.date).find(f=>f.id==='nap').known,false);
-});
-test('weekly recap computes observed improvement, not zero-filled or fabricated trends',()=>{
-  const demo=demoProfile('2026-10-15'),r=weeklyReport(demo.records,demo.targets,'2026-10-15',now);
-  assert.equal(r.current.recordDays,7);assert.equal(r.previous.recordDays,7);assert.ok(r.changes.earlierBedtime>0);assert.ok(r.changes.quality>0);
-  const sparse=weeklyReport([row],targets,'2026-10-15',now);assert.equal(sparse.current.quality,2);assert.equal(sparse.changes.quality,null);assert.equal(sparse.trend.filter(t=>t.quality===null).length,6);
-  assert.equal(weeklyReport([],{},'2026-10-15',now).current.onTimeRate,null);
-});
-test('weekly averages handle 23:50 and 00:10 as nearby sleep times',()=>{
-  const records=[{date:'2026-10-14',bedAt:'23:50'},{date:'2026-10-15',bedAt:'00:10'}];
-  const r=weeklyReport(records,{},'2026-10-15',now);assert.equal(r.current.bedtime,1440);
-});
-test('report service validates snapshots and keeps model prompts within the API limit',()=>{
+test('saved nightly targets are validated before coins or reviews use them',()=>{
   const demo=demoProfile('2026-10-15');
-  for(const mode of ['daily','weekly']){
-    const report=reportData({...demo,mode,asOf:'2026-10-15'},now);assert.ok(reportQuestion(report,mode).length<=800);
-  }
-  assert.throws(()=>reportData({...demo,targets:{bad:{bedtime:'99:99'}},mode:'daily',asOf:'2026-10-15'},now));
+  assert.equal(Object.keys(cleanTargets(demo.targets)).length,Object.keys(demo.targets).length);
+  assert.throws(()=>cleanTargets({bad:{bedtime:'99:99'}}));
+  assert.throws(()=>cleanTargets({'2026-10-15':{bedtime:'12:00',createdAt:'2026-10-15T10:00:00Z'}}));
 });
 test('planning prefers reported bedtimes and does not require knowing actual sleep onset',()=>{
   const records=['2026-10-12','2026-10-13','2026-10-14'].map(date=>({date,bedAt:'00:30',fatigue:2}));

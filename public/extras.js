@@ -1,4 +1,6 @@
-import { PETS,FURNITURE,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,dailyReport,weeklyReport,formatClock,nightMinute,nightInstant,addDays,demoProfile,snapshotTargets } from './progress.js';
+import { lineText, weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
+import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
+import { PETS,FURNITURE,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,demoProfile,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
   const {state,api,persist,render,toast,esc,icon,localDate}=ctx;
@@ -12,7 +14,7 @@ export function createExtras(ctx) {
     state.targets=next;persist();
   }
   function awardRecord(record) {
-    const result=awardNight(state.economy,record,state.targets);state.economy=result.economy;state.reportAI=null;
+    const result=awardNight(state.economy,record,state.targets);state.economy=result.economy;
     return result.awarded?result.reason:'';
   }
   function pendingRewards() {
@@ -29,7 +31,7 @@ export function createExtras(ctx) {
   }
   function homeHTML() {
     const pet=state.economy.pet,p=PETS.find(p=>p.id===pet?.id),row=state.records.find(r=>r.date===localDate());
-    return `<section class="companion-strip"><a href="#pet" class="companion-peek"><span class="peek-emoji" aria-hidden="true">${p?.emoji||'🐾'}</span><span><strong>${pet?esc(pet.name)+'在這裡等你':'讓一位小夥伴陪你慢慢調整'}</strong><small>${pet?`Lv.${level(state.economy)} · ${balance(state.economy)} 枚金幣`:'選擇 emoji，按時上床就能養牠、布置房間。'}</small></span><span class="strip-arrow">${icon('arrow')}</span></a><a href="#reports" class="morning-peek"><span>${row?.bedAt?'☀':'☁'}</span><span><strong>${row?.bedAt?'看看今天的回報':'早晨，留一分鐘回顧昨晚'}</strong><small>${row?.bedAt?'今晚安排與每週變化，都在這裡。':'上床、睡眠評分與五個生活線索。'}</small></span></a></section>`;
+    return `<section class="companion-strip"><a href="#pet" class="companion-peek"><span class="peek-emoji" aria-hidden="true">${p?.emoji||'🐾'}</span><span><strong>${pet?esc(pet.name)+'在這裡等你':'讓一位小夥伴陪你慢慢調整'}</strong><small>${pet?`Lv.${level(state.economy)} · ${balance(state.economy)} 枚金幣`:'選擇 emoji，按時上床就能養牠、布置房間。'}</small></span><span class="strip-arrow">${icon('arrow')}</span></a><a href="${row?.bedAt?'#pet':'#logs'}" class="morning-peek"><span>${row?.bedAt?'☀':'☁'}</span><span><strong>${row?.bedAt?'看看夥伴想對你說什麼':'早晨，留幾秒回報昨晚'}</strong><small>${row?.bedAt?'今天的回應在寵物房間裡。':'只要上床時間與睡眠品質。'}</small></span></a></section>`;
   }
   function adoptionHTML() {
     const id=state.petDraft||state.economy.pet?.id||'cat';
@@ -38,49 +40,94 @@ export function createExtras(ctx) {
   function petHTML() {
     const e=state.economy,pet=e.pet,p=PETS.find(p=>p.id===pet?.id),pending=pendingRewards();
     const furniture=slot=>{const f=FURNITURE.find(f=>f.id===e.equipped[slot]);return f?`<span class="room-item room-${slot}" role="img" aria-label="${esc(f.name)}">${f.emoji}</span>`:'';};
-    return `<div class="page-heading"><div><p class="eyebrow">GROW A LITTLE, REST A LITTLE</p><h1>我的小夥伴</h1><p>把每一個做得到的約定，變成牠生活裡的小美好。</p></div><span class="coin-wallet" aria-label="目前 ${balance(e)} 枚金幣">🪙 ${balance(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<section class="pet-room" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-caption"><span class="chip gold">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><h2>${esc(pet.name)}的小房間</h2><p>今天也一起，慢慢把日子過好。</p></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture('bed')}${furniture('plant')}${furniture('lamp')}${furniture('toy')}<span class="room-pet" role="img" aria-label="${esc(p.name)} ${esc(pet.name)}">${p.emoji}</span><span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section><div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress max="100" value="${e.affection}" aria-label="滿足感 ${e.affection} / 100"></progress><small>${e.affection} / 100 · 不會因為失眠扣分</small></div><button class="button gold-button" id="feed-pet" ${balance(e)<5||e.affection>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}
+    return `<div class="page-heading"><div><p class="eyebrow">GROW A LITTLE, REST A LITTLE</p><h1>我的小夥伴</h1><p>把每一個做得到的約定，變成牠生活裡的小美好。</p></div><span class="coin-wallet" aria-label="目前 ${balance(e)} 枚金幣">🪙 ${balance(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<section class="pet-room" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-caption"><span class="chip gold">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><h2>${esc(pet.name)}的小房間</h2><p>今天也一起，慢慢把日子過好。</p></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture('bed')}${furniture('plant')}${furniture('lamp')}${furniture('toy')}${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<span class="room-pet" role="img" aria-label="${esc(p.name)} ${esc(pet.name)}">${p.emoji}</span><span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section><div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress max="100" value="${e.affection}" aria-label="滿足感 ${e.affection} / 100"></progress><small>${e.affection} / 100 · 不會因為失眠扣分</small></div><button class="button gold-button" id="feed-pet" ${balance(e)<5||e.affection>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}
     <section class="reward-note"><div><span class="reward-icon">🪙</span></div><div><h2>按時上床，一晚存下 20 枚金幣</h2><p>以前一晚事先保存的就寢目標為準，最晚可晚 15 分鐘。早晨填寫「上床準備睡覺」時間後自動領取；同一晚只領一次。</p><p class="notice">按時上床但睡不著，仍然有獎勵。不扣金幣、不讓寵物受罰。依自行回報並保存至帳號，未連接螢幕時間或穿戴裝置。</p>${pet?`<button class="button secondary small" id="claim-coins" ${pending.total?'':'disabled'}>${pending.total?`領取尚未入帳的 ${pending.total} 枚`:'目前沒有待領金幣'}</button>`:''}<a class="text-button reward-link" href="#plan">先設定今晚作息 →</a><a class="text-button reward-link" href="#logs">早晨回報昨晚 →</a></div></section>
     ${pet?`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.equipped[f.slot]===f.id;return `<article class="shop-card"><div class="furniture-emoji" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&balance(e)<f.cost?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div><section class="panel"><h2>存下的每一個小約定</h2>${e.credits.length?`<div class="table-wrap"><table><thead><tr><th>夜晚日期</th><th>原定目標</th><th>回報上床</th><th>入帳</th></tr></thead><tbody>${[...e.credits].reverse().slice(0,7).map(c=>`<tr><td>${when(c.night)}</td><td>${esc(c.target)}</td><td>${esc(c.bedAt)}</td><td class="gold-text">+20 枚</td></tr>`).join('')}</tbody></table></div>`:'<p>先替今晚設定目標，明早回報後就能存下第一筆金幣。</p>'}<details><summary>更換 emoji 或名字</summary>${adoptionHTML()}</details></section>`:''}`;
   }
+  const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
   function changeText(value,unit,positive='增加',negative='減少') {
     if(value==null)return '<span class="comparison-missing">兩段期間各需至少三筆可比較紀錄</span>';
     if(Math.abs(value)<0.05)return '<span class="comparison-neutral">與前七天相近</span>';
     return `<span class="${value>0?'comparison-good':'comparison-neutral'}">${value>0?positive:negative} ${Number.isInteger(value)?Math.abs(value):Math.abs(value).toFixed(1)}${unit}</span>`;
   }
-  function dailyHTML(report) {
-    const r=report.record,t=report.tonight;
-    return `<div class="report-intro"><span class="chip gold">${when(report.night)} 晚間 → ${when(report.date)} 早晨</span><h2>${r?.bedAt?'昨晚的努力，我們有記下。':'早安，昨晚過得怎麼樣？'}</h2><p>${r?.bedAt?'回顧是為了替今天留一個做得到的方向。':'先回報上床、睡眠感受；還沒填的部分，就先留白。'}</p><a class="text-button" href="#logs">${r?'補充或修改昨晚紀錄':'填寫早晨回報'} →</a></div><div class="report-metrics"><article><small>依約上床</small><strong class="metric-text">${esc(report.adherence.label)}</strong><span>${report.adherence.target?'原定 '+esc(report.adherence.target):'需要睡前先設定目標'}</span></article><article><small>昨晚睡眠自評</small><strong>${report.quality==null?'—':report.quality+'<small> / 5</small>'}</strong><span>${report.quality==null?'尚未評分':'1 不好 · 5 很好'}</span></article><article><small>難入睡或夜醒</small><strong class="metric-text">${report.insomnia==='yes'?'有這種情況':report.insomnia==='no'?'沒有回報困擾':'尚未回報'}</strong><span>使用者的感受，非疾病診斷</span></article></div><section class="panel tonight-report"><p class="eyebrow">TONIGHT, ONE SMALL STEP</p><h2>今天可以怎麼安排？</h2>${t?`<div class="tonight-large"><span>${esc(t.bedtime)}</span><p>今晚建議上床<br><small>${esc(t.windDown)} 開始收心 · ${esc(t.dimLights)} 調暗燈光</small></p></div><p>${esc(state.plan.message)}</p>${state.planError?'<p class="notice">AI 分析未依最新資料更新，沿用本晚已保存目標。</p>':''}<a class="text-button" href="#plan">查看完整作息路徑 →</a>`:'<p>先在作息路徑填入通常就寢與起床時間，系統才能安排今晚。</p><a class="button secondary small" href="#plan">設定我的起點</a>'}</section><div class="section-heading"><h2>昨晚可以留意的五個線索</h2><small>相關線索，不是原因判定</small></div><div class="factor-grid">${report.factors.map(f=>`<article class="factor-card"><div><h3>${f.title}</h3><span class="factor-status ${f.flag?'observe':''}">${!f.known?'未知':f.flag?'可以觀察':'已有紀錄'}</span></div><p>${esc(f.evidence)}</p>${f.known?`<p class="factor-tip">${esc(f.tip)}</p>${sourceLinks(f.sourceIds)}`:'<p class="factor-tip">填寫後，才能和自己的睡眠感受一起看。</p>'}</article>`).join('')}</div><p class="notice">咖啡、運動、午睡對照起床前一天的行為；螢幕與情緒對照前一晚。沒有填寫不代表沒做，也不能由一晚的紀錄推論因果。</p>`;
-  }
   function trendChart(trend) {
     let path='',previous=-2;
     trend.forEach((p,i)=>{if(p.quality==null)return;path+=`${previous===i-1?'L':'M'}${50+i*90},${160-(p.quality-1)*30} `;previous=i;});
     return `<svg class="recap-chart" viewBox="0 0 640 205" role="img" aria-label="最近七天睡眠自評趨勢，缺填不補零；詳細數字見下方表格">${[1,3,5].map(n=>`<line x1="45" x2="610" y1="${160-(n-1)*30}" y2="${160-(n-1)*30}" stroke="#343745"/><text x="15" y="${164-(n-1)*30}">${n}</text>`).join('')}<path d="${path}" fill="none" stroke="#c7b9e7" stroke-width="2"/>${trend.filter(p=>p.quality!=null).map(p=>`<circle cx="${50+trend.indexOf(p)*90}" cy="${160-(p.quality-1)*30}" r="5" fill="#e5ce9e"/>`).join('')}${trend.map((p,i)=>`<text x="${50+i*90}" y="190" text-anchor="middle">${when(p.date)}</text>`).join('')}</svg>`;
   }
-  function weeklyHTML(report) {
-    const c=report.current,p=report.previous,d=report.changes;
-    return `<div class="report-intro"><span class="chip gold">${when(c.start)} — ${when(c.end)}</span><h2>一週的小改變，也值得被看見。</h2><p>最近七天 ${c.recordDays} 天紀錄，前七天 ${p.recordDays} 天。沒有填寫的晚上不算失敗。</p></div><div class="report-metrics"><article><small>按時上床</small><strong>${c.onTime}<small> / ${c.comparableDays} 晚</small></strong><span>${c.comparableDays?'只計有事前目標及上床回報的晚上':'尚無可核對的睡前目標'}</span></article><article><small>平均睡眠自評</small><strong>${n(c.quality)}<small> / 5</small></strong><span>${c.qualityCount} 晚有評分</span></article><article><small>平均上床時間</small><strong>${formatClock(c.bedtime)}</strong><span>${c.bedtimeCount} 晚自行回報 · 跨午夜計算</span></article></div><section class="panel"><div class="section-heading"><h2>七晚睡眠感受</h2><small>實際自評，缺填留白</small></div>${trendChart(report.trend)}${!c.qualityCount?'<p class="notice">還沒有睡眠評分，圖表不會預填示範資料。</p>':''}<div class="table-wrap"><table><thead><tr><th>起床日</th><th>上床</th><th>入睡</th><th>自評</th><th>依約</th><th>難入睡／夜醒</th></tr></thead><tbody>${report.trend.map(t=>`<tr><td>${when(t.date)}</td><td>${esc(t.bedAt||'—')}</td><td>${esc(t.sleepAt||'—')}</td><td>${t.quality==null?'—':t.quality+'/5'}</td><td>${t.adherence.status==='on-time'?'有':t.adherence.status==='late'?'較晚':'未知'}</td><td>${t.insomnia==='yes'?'有':t.insomnia==='no'?'無':'未知'}</td></tr>`).join('')}</tbody></table></div></section><section class="panel"><h2>和前七天比一比</h2><div class="table-wrap"><table class="comparison-table"><thead><tr><th>項目</th><th>前七天</th><th>最近七天</th><th>變化</th></tr></thead><tbody><tr><td>平均上床</td><td>${formatClock(p.bedtime)}</td><td>${formatClock(c.bedtime)}</td><td>${changeText(d.earlierBedtime==null?null:Math.round(d.earlierBedtime),' 分鐘','提早','延後')}</td></tr><tr><td>睡眠自評</td><td>${n(p.quality)}</td><td>${n(c.quality)}</td><td>${changeText(d.quality,' 分','提升','降低')}</td></tr><tr><td>按時上床比例</td><td>${p.onTimeRate==null?'—':Math.round(p.onTimeRate*100)+'%'}</td><td>${c.onTimeRate==null?'—':Math.round(c.onTimeRate*100)+'%'}</td><td>${changeText(d.onTimeRate==null?null:d.onTimeRate*100,' 個百分點','提升','降低')}</td></tr><tr><td>白天疲勞</td><td>${n(p.fatigue)}</td><td>${n(c.fatigue)}</td><td>${changeText(d.lessFatigue,' 分','減少','增加')}</td></tr><tr><td>自述難入睡／夜醒</td><td>${p.insomniaDays} / ${p.insomniaKnown} 晚</td><td>${c.insomniaDays} / ${c.insomniaKnown} 晚</td><td>只呈現已回報的晚數</td></tr></tbody></table></div><p class="notice">每項變化需兩段期間各至少三筆該項紀錄。變化可能有好有壞，不把單週差異當成 App 的療效。</p></section><section class="panel"><h2>哪些線索和困擾一起出現？</h2><div class="table-wrap"><table><thead><tr><th>線索</th><th>有填寫</th><th>可觀察情況</th><th>同晚也回報困擾</th></tr></thead><tbody>${report.factorSummary.map(f=>`<tr><td>${f.title}</td><td>${f.known} 晚</td><td>${f.flagged} 晚</td><td>${f.coReported} 晚</td></tr>`).join('')}</tbody></table></div><p class="notice">這是紀錄的同時出現次數，不是統計因果或風險分數。樣本少、缺填與不同情境都會影響觀察。</p></section>`;
+  const PERIODS={
+    weekly:{word:'這一週',whole:'整週',next:'下週',eyebrow:'A FEW WORDS FOR YOUR NEXT WEEK',every:'每週更新一次',key:'weeklyRecap',summary:weeklySummary,fixed:weeklySuggestion,due:weeklyRecapDue,api:'/api/reports/weekly'},
+    monthly:{word:'這個月',whole:'整個月',next:'下個月',eyebrow:'A FEW WORDS FOR THE NEXT STAGE',every:'每 28 天更新一次',key:'monthlyRecap',summary:monthlySummary,fixed:monthlySuggestion,due:monthlyRecapDue,api:'/api/reports/monthly'}
+  };
+  // Factors come only from follow-ups after late nights, so they are labelled that way.
+  function factorsHTML(f,kind) {
+    if(!f.rounds)return '';
+    return `<section class="panel"><h2>偏離日曾回報的因素</h2>${f.factors.length?`<ul class="factor-list">${f.factors.map(x=>`<li><span>${esc(x.label)}</span><small>${x.times} 次</small></li>`).join('')}</ul>`:'<p>比較晚的那幾天，你回答「沒有特別不一樣」。</p>'}${gapsHTML(f)}<p class="notice">只在比目標晚的日子詢問，代表那幾天曾出現，不是晚睡的原因，也不代表${PERIODS[kind].whole}的狀況。</p></section>`;
+  }
+  // Reported times converted to hours before the average bedtime on those late nights.
+  function gapsHTML(f) {
+    const rows=[...f.caffeine.map(c=>`咖啡因：最後一杯約 ${esc(c.lastAt)}，距離那幾晚上床${hoursText(c.hoursBeforeBed)}`),...f.exercise.map(e=>`運動：${e.endAt?`約 ${esc(e.endAt)} 結束`:`${LEGACY_BAND_LABELS[e.endBand]}結束`}，距離那幾晚上床${hoursText(e.hoursBeforeBed)}`)];
+    return rows.length?`<ul class="gap-list">${rows.map(r=>`<li>${r}</li>`).join('')}</ul><p class="notice">用回報的時間對照那幾個偏離日的平均上床時間換算，只描述那幾晚；每個人受影響的程度不同，這裡不判斷多久才算夠。</p>`:'';
+  }
+  function recapHTML(kind,summary) {
+    const P=PERIODS[kind], r=state[P.key], fixed=`<p class="answer-text">${esc(P.fixed(summary))}</p>`;
+    const sourceLink=s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`;
+    let body;
+    if(state[kind+'Busy'])body=`<p class="notice" role="status">正在整理${P.word}的回顧…</p>`;
+    else if(r&&!state.demo)body=`<p class="notice">${when(r.start)} — ${when(r.end)} 的回顧 · ${P.every}</p><p class="answer-text">${esc(r.answer)}</p>${r.suggestion?`<article class="advice-item"><h3>${P.next}可以試試：${esc(r.suggestion.title)}</h3><p>${esc(r.suggestion.detail)}</p>${r.sources.map(sourceLink).join('')}</article>`:''}<p class="notice">由 AI 根據上面的統計與追問整理，不是醫療建議；數字以程式計算為準。</p>`;
+    else if(!summary.complete)body=fixed;
+    else body=`${fixed}${state[kind+'Error']?`<p class="notice">AI 回顧暫時無法產生（${esc(state[kind+'Error'])}），先顯示固定建議，下次開啟會再試。</p>`:state.demo?'<p class="notice">示範模式不產生 AI 回顧。</p>':''}`;
+    return `<section class="panel ai-report"><p class="eyebrow">${P.eyebrow}</p><h2>${P.word}的回顧</h2>${body}</section>`;
+  }
+  // Generates the reply once per period (7 or 28 days) when the period has enough data.
+  async function maybeRecap(kind) {
+    const P=PERIODS[kind], date=localDate();
+    if(state.demo||state[kind+'Busy']||state[kind+'Tried']===date||!navigator.onLine||!P.due(state[P.key],date))return;
+    if(!P.summary(state.records,state.targets,date).complete)return;
+    state[kind+'Busy']=true;state[kind+'Error']='';state[kind+'Tried']=date;render();
+    try{
+      const body={asOf:date,records:state.records,targets:state.targets,factorSurveys:state.factorSurveys||[],...(kind==='monthly'?{previousRecap:state.monthlyRecap}:{})};
+      const recap=await api(P.api,body);
+      if(!state.demo){state[P.key]=recap;persist();}
+    }catch(e){state[kind+'Error']=e.message;}
+    finally{state[kind+'Busy']=false;if(location.hash==='#reports')render();}
+  }
+  function monthlyHTML() {
+    const m=monthlySummary(state.records,state.targets,localDate());
+    const change=v=>v==null?'兩週各需至少三筆':Math.abs(v)<1?'差不多':v>0?`提早 ${Math.round(v)} 分鐘`:`延後 ${Math.round(-v)} 分鐘`;
+    return `<div class="report-intro"><span class="chip gold">${when(m.start)} — ${when(m.end)}</span><h2>二十八天，慢慢看見自己的節奏。</h2><p>這二十八天有 ${m.validDays} 天回報上床時間。沒有填寫的晚上不算失敗，也不補值。</p></div>${m.complete?'':`<p class="notice period-missing">完整月報需要最近二十八天至少 ${m.minDays} 天有上床紀錄，目前 ${m.validDays} 天。目前資料還不夠，我們會繼續觀察你的作息。</p>`}
+    <div class="report-metrics period-metrics"><article><small>目標達標率</small><strong>${m.onTimeRate==null?'—':Math.round(m.onTimeRate*100)+'%'}</strong><span>${m.onTime} 晚達標 · ${m.late} 晚偏離</span></article><article><small>作息變化</small><strong class="metric-text">${change(m.earlierBedtime)}</strong><span>第一週到第四週的平均上床時間</span></article><article><small>上床時間穩定度</small><strong class="metric-text">${m.bedtimeSpread==null?'需至少七筆':`約 ±${Math.round(m.bedtimeSpread)} 分鐘`}</strong><span>越小越規律</span></article><article><small>平均睡眠品質</small><strong>${n(m.quality)}<small> / 5</small></strong><span>${m.qualityCount} 晚有評分</span></article></div>
+    <section class="panel"><h2>每週平均上床時間</h2><div class="table-wrap"><table><thead><tr><th>週次</th><th>日期</th><th>上床紀錄</th><th>平均上床</th><th>達標／偏離</th></tr></thead><tbody>${m.weeks.map((w,i)=>`<tr><td>第 ${i+1} 週</td><td>${when(w.start)}–${when(w.end)}</td><td>${w.validDays} 天</td><td>${w.bedtime==null?'資料不足':formatClock(w.bedtime)}</td><td>${w.onTime} / ${w.late}</td></tr>`).join('')}</tbody></table></div><p class="notice">每週平均需至少三筆紀錄；時間跨午夜計算。</p></section>
+    ${factorsHTML(weekFactors(state.factorSurveys||[],m.start,m.end,state.records),'monthly')}${recapHTML('monthly',m)}`;
+  }
+  function weeklyHTML() {
+    const w=weeklySummary(state.records,state.targets,localDate());
+    const minutes=(v,early,later)=>v==null?'與上週比較需各至少三筆':Math.abs(v)<1?'與上週差不多':v>0?`${early} ${Math.round(v)} 分鐘`:`${later} ${Math.round(-v)} 分鐘`;
+    const points=v=>v==null?'與上週比較需各至少三筆':Math.abs(v)<0.05?'與上週差不多':`比上週${v>0?'提升':'降低'} ${Math.abs(v).toFixed(1)} 分`;
+    const status=x=>x==='on-time'?'達標':x==='late'?'偏離':'—';
+    const chart=trendChart(w.days.map(d=>({date:d.date,quality:d.quality})));
+    return `<div class="report-intro"><span class="chip gold">${when(w.start)} — ${when(w.end)}</span><h2>一週的小改變，也值得被看見。</h2><p>最近七天有 ${w.validDays} 天回報上床時間。沒有填寫的晚上不算失敗，也不補值。</p></div>${w.complete?'':`<p class="notice period-missing">完整週報需要最近七天至少 ${w.minDays} 天有上床紀錄，目前 ${w.validDays} 天。以下先列出已有的紀錄，不做結論。</p>`}
+    <div class="report-metrics period-metrics"><article><small>達標／偏離</small><strong>${w.onTime}<small> 晚達標</small> · ${w.late}<small> 晚偏離</small></strong><span>${w.comparable?'偏離指比當晚目標晚超過 15 分鐘':'尚無可核對的睡前目標'}</span></article><article><small>平均上床時間</small><strong>${formatClock(w.bedtime)}</strong><span>${minutes(w.changes.earlierBedtime,'比上週早','比上週晚')}</span></article><article><small>上床時間穩定度</small><strong class="metric-text">${w.bedtimeSpread==null?'需至少三筆':`約 ±${Math.round(w.bedtimeSpread)} 分鐘`}</strong><span>每晚上床時間的差異，越小越規律</span></article><article><small>平均睡眠品質</small><strong>${n(w.quality)}<small> / 5</small></strong><span>${w.qualityCount} 晚有評分 · ${points(w.changes.quality)}</span></article></div>
+    <section class="panel"><div class="section-heading"><h2>這七晚</h2><small>自行回報，缺填留白</small></div>${chart}<div class="table-wrap"><table><thead><tr><th>起床日</th><th>上床時間</th><th>睡眠品質</th><th>依約</th></tr></thead><tbody>${w.days.map(d=>`<tr><td>${when(d.date)}</td><td>${esc(d.bedAt||'—')}</td><td>${d.quality==null?'—':d.quality+'/5'}</td><td>${status(d.status)}</td></tr>`).join('')}</tbody></table></div></section>
+    ${factorsHTML(weekFactors(state.factorSurveys||[],w.start,w.end,state.records),'weekly')}${recapHTML('weekly',w)}`;
   }
   function reportsHTML() {
-    const mode=state.reportMode||'daily', date=localDate();
-    const report=mode==='daily'?dailyReport(state.records,state.targets,date,state.plan):weeklyReport(state.records,state.targets,date);
-    const key=JSON.stringify([mode,date,state.records,state.targets,state.settings]);
-    const ai=state.reportAI?.key===key?state.reportAI.advice:null;
-    const enough=mode==='daily'?Boolean(report.record?.bedAt||report.record?.sleepAt):report.current.recordDays>0;
-    return `<div class="page-heading"><div><p class="eyebrow">LOOK BACK, MOVE GENTLY FORWARD</p><h1>睡眠回報</h1><p>每天一點回顧，每週看見有紀錄支持的變化。</p></div></div><div class="report-tabs" role="tablist" aria-label="回報週期"><button role="tab" aria-selected="${mode==='daily'}" data-report-mode="daily">每日回報</button><button role="tab" aria-selected="${mode==='weekly'}" data-report-mode="weekly">每週 recap</button></div>${mode==='daily'?dailyHTML(report):weeklyHTML(report)}<section class="panel ai-report"><p class="eyebrow">A FEW WORDS FOR YOUR NEXT STEP</p><h2>${mode==='daily'?'讓 AI 幫你整理今天':'讓 AI 幫你整理這一週'}</h2><p>結合紀錄與有來源的睡眠知識，整理可嘗試的下一步。</p><div class="form-actions"><button class="button" id="generate-report" ${state.reportBusy||!enough?'disabled':''}>${state.reportBusy?'正在整理回報…':mode==='daily'?'產生今日 AI 回報':'產生每週 AI recap'}${icon('sparkles')}</button><span class="notice">${enough?'點擊後，近期相關紀錄會交由 Gemini 分析。':'先填寫一筆睡眠回報，就能開始。'}</span></div>${state.reportError?`<div class="error-box" role="alert">${esc(state.reportError)}</div>`:''}${ai?`<div class="report-ai-result" aria-live="polite"><p class="answer-text">${esc(ai.answer)}</p>${ai.suggestions.map(s=>`<article class="advice-item"><h3>${esc(s.title)}</h3><p>${esc(s.detail)}</p>${s.sourceIds.map(id=>{const source=ai.sources.find(s=>s.id===id);return source?`<a class="source-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.publisher)} ↗</a>`:'';}).join('')}</article>`).join('')}<details><summary>查看此次檢索來源</summary>${ai.sources.map(s=>`<p><strong>${esc(s.id)} · ${esc(s.title)}</strong><br>${esc(s.text)}<br><a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">閱讀原始來源 ↗</a></p>`).join('')}</details></div>`:''}</section>`;
+    const mode=state.reportMode==='monthly'?'monthly':'weekly';
+    return `<div class="page-heading"><div><p class="eyebrow">LOOK BACK, MOVE GENTLY FORWARD</p><h1>睡眠回報</h1><p>每天的回報交給小夥伴；這裡看每週、每月有紀錄支持的變化。</p></div></div><div class="report-tabs" role="tablist" aria-label="回報週期"><button role="tab" aria-selected="${mode==='weekly'}" data-report-mode="weekly">每週回顧</button><button role="tab" aria-selected="${mode==='monthly'}" data-report-mode="monthly">每月回顧</button></div>${mode==='monthly'?monthlyHTML():weeklyHTML()}`;
   }
   function bind(page) {
     $('#enter-demo')?.addEventListener('click',async()=>{
       if(state.demo){toast('目前已經在示範模式。');return;}
-      if(state.adviceBusy||state.reportBusy||state.planBusy){toast('先等待目前的分析完成，再切換示範。');return;}
-      state.realBackup=structuredClone({records:state.records,targets:state.targets,economy:state.economy,settings:state.settings,closures:state.closures,aiPlan:state.aiPlan,plan:state.plan,onboarding:state.onboarding});
-      Object.assign(state,demoProfile(localDate()),{demo:true,aiPlan:null,plan:null,advice:null,reportAI:null,reportError:'',flow:'home',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
+      if(state.adviceBusy||state.planBusy||state.weeklyBusy||state.monthlyBusy){toast('先等待目前的分析完成，再切換示範。');return;}
+      state.realBackup=structuredClone({records:state.records,targets:state.targets,economy:state.economy,settings:state.settings,closures:state.closures,aiPlan:state.aiPlan,plan:state.plan,onboarding:state.onboarding,petFeedback:state.petFeedback,factorSurveys:state.factorSurveys,weeklyRecap:state.weeklyRecap,monthlyRecap:state.monthlyRecap});
+      Object.assign(state,demoProfile(localDate()),{demo:true,aiPlan:null,plan:null,advice:null,flow:'home',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
       const pending=ctx.updatePlan();location.hash='pet';render();await pending;render();toast('已進入虛構資料示範；原本資料不會被覆寫。');
     });
     $('#exit-demo')?.addEventListener('click',async()=>{
-      if(state.adviceBusy||state.reportBusy||state.planBusy){toast('等待這次回覆完成後，就能離開示範。');return;}
+      if(state.adviceBusy||state.planBusy||state.weeklyBusy||state.monthlyBusy){toast('等待這次回覆完成後，就能離開示範。');return;}
       const backup=state.realBackup;
-      Object.assign(state,backup,{demo:false,realBackup:null,advice:null,reportAI:null,reportError:'',flow:'home',closureId:null,action:'',note:'',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
+      Object.assign(state,backup,{demo:false,realBackup:null,advice:null,flow:'home',closureId:null,action:'',note:'',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
       await ctx.updatePlan();render();toast('已回到原本的資料。');
     });
     if(page==='pet') {
@@ -91,16 +138,8 @@ export function createExtras(ctx) {
       $('#claim-coins')?.addEventListener('click',()=>{const result=pendingRewards(),old=state.economy;state.economy=result.economy;if(!persist()){state.economy=old;return;}render();toast(result.total?`已入帳 ${result.total} 枚金幣。`:'這些晚上的金幣已經領過了。');});
     }
     if(page==='reports') {
-      $$('[data-report-mode]').forEach(el=>el.addEventListener('click',()=>{state.reportMode=el.dataset.reportMode;state.reportError='';render();}));
-      $('#generate-report')?.addEventListener('click',async()=>{
-        if(state.reportBusy)return;
-        const mode=state.reportMode||'daily',asOf=localDate(),key=JSON.stringify([mode,asOf,state.records,state.targets,state.settings]);
-        const payload={mode,asOf,planNight:state.plan?.points?.[0]?.date,records:state.records,targets:state.targets,settings:state.settings};
-        state.reportBusy=true;state.reportError='';render();
-        try{const result=await api('/api/reports/advice',payload);state.reportAI={key,advice:result.advice};}
-        catch(e){state.reportError=e.message;}
-        finally{state.reportBusy=false;if(location.hash==='#reports')render();}
-      });
+      setTimeout(()=>maybeRecap(state.reportMode==='monthly'?'monthly':'weekly'));
+      $$('[data-report-mode]').forEach(el=>el.addEventListener('click',()=>{state.reportMode=el.dataset.reportMode;render();}));
     }
   }
   return {petHTML,reportsHTML,homeHTML,bind,rememberTarget,awardRecord};

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.mjs';
-import { demoProfile } from '../public/progress.js';
 async function fixture(t,options={}) {
   const server=createApp({apiKey:'test-key',dbPath:':memory:',...options});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -11,9 +10,9 @@ async function fixture(t,options={}) {
   const cookie=registration.headers.get('set-cookie').split(';')[0];
   return {base,get:p=>fetch(base+p,{headers:{Cookie:cookie}}),post:(p,body,headers={})=>fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie,...headers},body:JSON.stringify(body)})};
 }
-test('removed bedtime conversation APIs return not found',async t=>{
+test('removed bedtime conversation and old daily/weekly report APIs return not found',async t=>{
   const f=await fixture(t,{apiKey:''});
-  for(const route of ['/api/sessions','/api/sessions/00000000-0000-0000-0000-000000000000/messages','/api/sessions/00000000-0000-0000-0000-000000000000/close']) {
+  for(const route of ['/api/sessions','/api/sessions/00000000-0000-0000-0000-000000000000/messages','/api/sessions/00000000-0000-0000-0000-000000000000/close','/api/reports','/api/reports/advice']) {
     const response=await f.post(route,{});
     assert.equal(response.status,404);
     assert.equal((await response.json()).code,'NOT_FOUND');
@@ -38,14 +37,6 @@ test('knowledge and record validation work offline; AI plans require a connected
   assert.equal((await(await f.get('/api/knowledge')).json()).sources.length,10);
   const p=await f.post('/api/plan',{records:[],currentBedtime:'03:00',targetBedtime:'00:30',wakeTime:'08:30',asOf:'2026-10-15'});assert.equal(p.status,503);assert.equal((await p.json()).code,'AI_NOT_CONFIGURED');
   const r=await(await f.post('/api/records/validate',{records:[{date:'2026-10-15',fatigue:'4'}]})).json();assert.equal(r.records[0].fatigue,4);
-});
-test('daily and weekly report APIs return real calculated stats and validated model context',async t=>{
-  let received;
-  const f=await fixture(t,{advise:async input=>{received=input;return{answer:'測試回報',sources:[],suggestions:[]};}}),profile=demoProfile('2026-10-15');
-  const weekly=await(await f.post('/api/reports',{...profile,mode:'weekly',asOf:'2026-10-15'})).json();
-  assert.equal(weekly.current.recordDays,7);assert.ok(weekly.changes.earlierBedtime>0);
-  profile.targets['2026-10-15']={bedtime:'00:20',createdAt:'2026-10-15T12:00:00+08:00',source:'gemini'};
-  const daily=await f.post('/api/reports/advice',{...profile,mode:'daily',asOf:'2026-10-15'});assert.equal(daily.status,200);assert.equal(received.reportContext.mode,'daily');assert.equal(received.reportContext.tonight.bedtime,'00:20');
 });
 test('generic advice cannot submit its own trusted report calculations',async t=>{
   let received;const f=await fixture(t,{advise:async input=>{received=input;return{answer:'test'};}});
