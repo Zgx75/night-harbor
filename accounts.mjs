@@ -8,6 +8,7 @@ import { cleanRecords, isTime } from './domain.mjs';
 import { cleanTargets } from './reports.mjs';
 import { normaliseEconomy } from './public/progress.js';
 import { createSocialStore } from './social.mjs';
+import { cleanOnboarding } from './public/onboarding.js';
 
 const derive = promisify(scrypt);
 const HASH_OPTIONS = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
@@ -43,7 +44,10 @@ export function cleanProfile(value) {
   if (value.economy?.credits?.length > 1000 || value.economy?.transactions?.length > 2000) throw new AppError(400, 'PROFILE_INPUT', '寵物交易紀錄過多，請先匯出備份。');
   const aiPlan = validObject(value.aiPlan) ? value.aiPlan : null;
   if (aiPlan && JSON.stringify(aiPlan).length > 64000) throw new AppError(400, 'PROFILE_INPUT', '作息分析資料過大。');
-  return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan };
+  let onboarding;
+  try { onboarding = cleanOnboarding(value.onboarding ?? null); }
+  catch (error) { if (error.code === 'ONBOARDING') throw new AppError(400, 'PROFILE_INPUT', error.message); throw error; }
+  return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan, onboarding };
 }
 
 export function createAccountStore({ filename, now = Date.now } = {}) {

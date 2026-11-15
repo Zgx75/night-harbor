@@ -35,7 +35,7 @@ test('static server only serves public files and does not expose secrets',async 
 });
 test('knowledge and record validation work offline; AI plans require a connected model',async t=>{
   const f=await fixture(t,{apiKey:''});
-  assert.equal((await(await f.get('/api/knowledge')).json()).sources.length,9);
+  assert.equal((await(await f.get('/api/knowledge')).json()).sources.length,10);
   const p=await f.post('/api/plan',{records:[],currentBedtime:'03:00',targetBedtime:'00:30',wakeTime:'08:30',asOf:'2026-10-15'});assert.equal(p.status,503);assert.equal((await p.json()).code,'AI_NOT_CONFIGURED');
   const r=await(await f.post('/api/records/validate',{records:[{date:'2026-10-15',fatigue:'4'}]})).json();assert.equal(r.records[0].fatigue,4);
 });

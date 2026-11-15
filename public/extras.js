@@ -73,7 +73,7 @@ export function createExtras(ctx) {
     $('#enter-demo')?.addEventListener('click',async()=>{
       if(state.demo){toast('目前已經在示範模式。');return;}
       if(state.adviceBusy||state.reportBusy||state.planBusy){toast('先等待目前的分析完成，再切換示範。');return;}
-      state.realBackup=structuredClone({records:state.records,targets:state.targets,economy:state.economy,settings:state.settings,closures:state.closures,aiPlan:state.aiPlan,plan:state.plan});
+      state.realBackup=structuredClone({records:state.records,targets:state.targets,economy:state.economy,settings:state.settings,closures:state.closures,aiPlan:state.aiPlan,plan:state.plan,onboarding:state.onboarding});
       Object.assign(state,demoProfile(localDate()),{demo:true,aiPlan:null,plan:null,advice:null,reportAI:null,reportError:'',flow:'home',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
       const pending=ctx.updatePlan();location.hash='pet';render();await pending;render();toast('已進入虛構資料示範；原本資料不會被覆寫。');
     });
