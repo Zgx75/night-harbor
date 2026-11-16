@@ -1,3 +1,4 @@
+import { isTime, nightMinutes } from './records.js';
 const $ = selector => document.querySelector(selector);
 const LEGACY = 'night-harbor-v1';
 const cacheKey = id => `night-harbor-account-${id}`;
@@ -46,16 +47,28 @@ export async function openAccount() {
     $('#auth-register').setAttribute('aria-selected', String(register));
     $('#auth-name-row').hidden = !register;
     $('#auth-confirm-row').hidden = !register;
+    $('#auth-setup-row').hidden = !register;
     $('#auth-name').required = false;
     $('#auth-confirm').required = register;
+    for (const id of ['#auth-current-bedtime', '#auth-target-bedtime', '#auth-wake-time']) $(id).required = register;
     $('#auth-password').autocomplete = register ? 'new-password' : 'current-password';
     $('#auth-submit').textContent = register ? '註冊並開始' : '登入夜泊';
     $('#auth-error').textContent = '';
     $('#auth-confirm').value = '';
   }
-  async function enter(user) {
+  async function enter(user, setup) {
     let result = await accountRequest('/api/profile');
     result = await legacyProfile(user, result);
+    if (setup) {
+      // The three routine times asked for at sign-up become this account's settings.
+      const base = result.profile && typeof result.profile === 'object' ? result.profile : {};
+      const merged = { ...base, settings: { ...(base.settings || {}), ...setup } };
+      try { result = await accountRequest('/api/profile', { profile: merged, revision: result.revision }); }
+      catch {
+        // Keep the answers on this device so the normal sync retries them; they can also be edited in Settings.
+        try { localStorage.setItem(cacheKey(user.id), JSON.stringify({ profile: merged, revision: result.revision, pending: true })); } catch { /* Settings can be filled in later. */ }
+      }
+    }
     const cached = readCache(cacheKey(user.id));
     const pending = cached?.pending === true && cached.profile && Number.isSafeInteger(cached.revision);
     const account = { user, profile: pending ? cached.profile : result.profile, revision: pending ? cached.revision : result.revision, pending, conflict: pending && cached.revision !== result.revision };
@@ -78,9 +91,15 @@ export async function openAccount() {
     const password = $('#auth-password').value;
     if (mode === 'register' && password !== $('#auth-confirm').value) { $('#auth-error').textContent = '兩次輸入的密碼不一致。'; return; }
     const displayName = $('#auth-name').value.trim() || username;
+    let setup;
+    if (mode === 'register') {
+      setup = { currentBedtime: $('#auth-current-bedtime').value, targetBedtime: $('#auth-target-bedtime').value, wakeTime: $('#auth-wake-time').value };
+      if (!Object.values(setup).every(isTime)) { $('#auth-error').textContent = '請填寫三個作息時間。'; return; }
+      if ([setup.currentBedtime, setup.targetBedtime].some(time => nightMinutes(time) < 1080 || nightMinutes(time) > 1800)) { $('#auth-error').textContent = '上床時間請填晚間 18:00 到隔天 06:00。'; return; }
+    }
     setBusy(true);
     $('#auth-error').textContent = '';
-    try { const result = await accountRequest(`/api/auth/${mode}`, { username, password, displayName }); await enter(result.user); }
+    try { const result = await accountRequest(`/api/auth/${mode}`, { username, password, displayName }); await enter(result.user, setup); }
     catch (error) { $('#auth-error').textContent = error.message; }
     finally { setBusy(false); }
   });
