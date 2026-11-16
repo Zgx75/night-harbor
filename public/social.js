@@ -96,7 +96,7 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
   }
   function html() {
     if(state.demo)return `<div class="page-heading"><div><h1>好友</h1><p>離開示範模式後，就能和真實帳號的朋友互動。</p></div></div>`;
-    return `<div id="social-page"><div class="page-heading"><div><p class="eyebrow">A LITTLE BETTER, TOGETHER</p><h1>一起，慢慢變好</h1><p>陪伴彼此的作息，送一句晚安給朋友。</p></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
+    return `<div id="social-page"><div class="page-heading"><div><h1>一起，慢慢變好</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
   }
   function bind() {
     if(!onPage()||state.demo)return;

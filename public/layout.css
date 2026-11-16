@@ -18,21 +18,31 @@
 .content-shell{margin-left:0;margin-right:calc(var(--rail-width) + env(safe-area-inset-right));width:calc(100% - var(--rail-width) - env(safe-area-inset-right));min-width:0;padding:env(safe-area-inset-top) 36px 0 max(36px,env(safe-area-inset-left))}
 .nudge{right:calc(var(--rail-width) + env(safe-area-inset-right) + 28px)}
 .toast{left:calc((100% - var(--rail-width) - env(safe-area-inset-right))/2)}
-.topbar{height:76px}
-.topbar .mobile-brand{display:inline;font-size:13px;color:var(--text);letter-spacing:.12em}
-#main{min-width:0}
-.page-heading{flex-wrap:wrap}
+.topbar{height:60px}
+.topbar .mobile-brand{display:flex;align-items:center;gap:10px;font-size:24px;color:var(--text);letter-spacing:.12em}
+.topbar .brand-moon{font-size:1.3em;line-height:1}
+#main{min-width:0;padding-top:18px}
+.page-heading{flex-wrap:wrap;margin-bottom:20px}
 .page-heading>div{min-width:0}
-.page-heading h1{overflow-wrap:anywhere}
-body[data-page=pet] .page-heading{align-items:center;margin-bottom:23px}
+.page-heading h1{overflow-wrap:anywhere;font-weight:700}
+body[data-page=pet] .page-heading{align-items:center;margin-bottom:20px}
 body[data-page=pet] .page-heading h1{font-size:30px}
-body[data-page=shop] .page-heading{align-items:center;margin-bottom:23px}
+body[data-page=shop] .page-heading{align-items:center;margin-bottom:20px}
 body[data-page=shop] .page-heading h1{font-size:30px}
 body[data-page=pet] .pet-room{min-height:clamp(420px,calc(100dvh - 270px),600px);background:radial-gradient(ellipse at 50% 75%,#66506438,transparent 65%),linear-gradient(155deg,#292b3c,#242532 65%);box-shadow:inset 0 1px 0 #ffffff05}
 body[data-page=pet] .pet-room::before{content:"";position:absolute;width:340px;height:340px;left:50%;bottom:-80px;transform:translateX(-50%);border:1px solid #c7b9e70c;border-radius:50%;box-shadow:0 0 0 45px #c7b9e703,0 0 0 90px #c7b9e702;pointer-events:none}
-body[data-page=pet] .room-pet{font-size:160px;bottom:64px}
-body[data-page=pet] .room-caption{top:30px;left:32px}
-body[data-page=pet] .room-caption h2{font-size:29px;overflow-wrap:anywhere}
+body[data-page=pet]{--pet-size:32px}
+body[data-page=pet] .room-pet{display:grid;place-items:center;margin:0;padding:12px;border:0;background:none;color:inherit;font-size:var(--pet-size);line-height:1;left:var(--pet-x,50%);bottom:var(--pet-y,24px);filter:drop-shadow(0 2px 2px #0004);cursor:pointer;touch-action:manipulation;transition:left var(--walk,0s) cubic-bezier(.45,.05,.55,.95),bottom var(--walk,0s) cubic-bezier(.45,.05,.55,.95)!important}
+body[data-page=pet] .pet-body{display:block;transform-origin:50% 100%}
+/* !important on purpose: the global reduced-motion rule in styles.css must not stop the pet. */
+body[data-page=pet] .room-pet.is-walking .pet-body{animation:pet-hop .5s ease-in-out infinite!important}
+body[data-page=pet] .room-pet.is-shaking .pet-body{animation:pet-shake .7s ease-in-out!important}
+body[data-page=pet] .room-pet[data-stage="2"]{--pet-size:44px}
+body[data-page=pet] .room-pet[data-stage="3"]{--pet-size:56px}
+body[data-page=pet] .pet-nameplate{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:0 0 14px}
+body[data-page=pet] .pet-nameplate h2{margin:0;font-family:"PMingLiU",serif;font-size:26px;line-height:1.4;overflow-wrap:anywhere}
+@keyframes pet-hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes pet-shake{0%,100%{transform:translateX(0) rotate(0) scale(1)}12%{transform:translateX(-2px) rotate(-16deg) scale(1.5)}28%{transform:translateX(2px) rotate(16deg) scale(1.5)}44%{transform:translateX(-2px) rotate(-14deg) scale(1.4)}60%{transform:translateX(2px) rotate(12deg) scale(1.3)}76%{transform:translateX(-1px) rotate(-7deg) scale(1.15)}90%{transform:translateX(1px) rotate(3deg) scale(1.05)}}
 body[data-page=pet] .room-window{top:42px;right:64px}
 body[data-page=pet] .room-floor{height:116px;background:linear-gradient(#3b3440,#332d38)}
 body[data-page=pet] .room-rug{width:340px;height:85px;bottom:25px}
@@ -59,8 +69,7 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   .sidebar .nav-link.active::before{right:-3px;top:16px;height:21px;width:2px}
   .content-shell{padding-right:16px;padding-left:max(16px,env(safe-area-inset-left));padding-bottom:env(safe-area-inset-bottom)}
   .topbar{height:62px;gap:8px;flex-wrap:wrap;align-content:center;justify-content:space-between}
-  .topbar #today-label{font-size:8px;letter-spacing:0}
-  .topbar .mobile-brand{font-size:11px}
+  .topbar .mobile-brand{font-size:20px}
   .topbar-note{display:none}
   body[data-page=pet] .page-heading{gap:12px;margin-bottom:18px}
   body[data-page=pet] .page-heading h1{font-size:25px}
@@ -71,10 +80,10 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   body[data-page=shop] .page-heading p{font-size:11px;margin-top:6px}
   body[data-page=shop] .coin-wallet{padding:5px 10px;font-size:13px}
   body[data-page=pet] .pet-room{min-height:420px;border-radius:22px}
-  body[data-page=pet] .room-caption{top:22px;left:18px;max-width:calc(100% - 114px)}
-  body[data-page=pet] .room-caption h2{font-size:21px;line-height:1.55}
   body[data-page=pet] .room-window{right:16px;top:30px}
-  body[data-page=pet] .room-pet{font-size:132px;bottom:64px}
+  body[data-page=pet]{--pet-size:26px}
+  body[data-page=pet] .room-pet[data-stage="2"]{--pet-size:36px}
+  body[data-page=pet] .room-pet[data-stage="3"]{--pet-size:45px}
   body[data-page=pet] .room-rug{width:220px;height:70px}
   body[data-page=pet] .pet-care{padding:17px 15px;gap:15px}
   .reward-note{flex-direction:column;gap:9px}
@@ -92,7 +101,6 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   .form-grid{grid-template-columns:minmax(0,1fr)}
   .plan-summary{grid-template-columns:minmax(0,1fr)}
   .page-heading h1{font-size:25px}
-  .room-caption .chip{white-space:normal;line-height:1.6}
   .hero{grid-template-columns:minmax(0,1fr)}
   .hero-copy{padding:25px 20px}
   .hero .moon-art{display:none}

@@ -74,8 +74,6 @@ export async function openAccount() {
     const account = { user, profile: pending ? cached.profile : result.profile, revision: pending ? cached.revision : result.revision, pending, conflict: pending && cached.revision !== result.revision };
     $('#auth-password').value = '';
     $('#auth-confirm').value = '';
-    $('#account-name').textContent = user.displayName;
-    $('#account-name').title = `帳號：${user.username}`;
     $('#account-tools').hidden = false;
     document.body.dataset.auth = 'ready';
     $('#app-shell').hidden = false;
@@ -125,6 +123,8 @@ export function createProfileSync(account, { onSaved } = {}) {
   const status = $('#sync-label');
   function show(message, problem = false) {
     status.textContent = message;
+    // The bar only appears when something needs attention; normal saving stays out of the way.
+    $('#account-sync').hidden = !problem;
     $('#account-sync').classList.toggle('sync-problem', problem);
     $('#sync-retry').hidden = !problem || conflict || expired;
     $('#sync-backup').hidden = !conflict && !expired;
@@ -196,8 +196,9 @@ export function createProfileSync(account, { onSaved } = {}) {
     if (pending && !window.confirm('讀取帳號最新資料會放棄這台裝置尚未同步的變更。需要保留時，請先按「下載此裝置備份」。確定重新讀取？')) return;
     closing = true; localStorage.removeItem(key); location.reload();
   });
-  $('#logout-account').addEventListener('click', async () => {
-    const button = $('#logout-account'); button.disabled = true;
+  // Sign-out lives on the user page now; the page passes its own button so it can be disabled meanwhile.
+  async function logout(button) {
+    if (button) button.disabled = true;
     try {
       const saved = await flush();
       if (!saved && pending && !window.confirm('還有尚未同步的資料，會暫存在這台裝置，下次登入同一帳號時再處理。仍要登出？')) return;
@@ -205,15 +206,14 @@ export function createProfileSync(account, { onSaved } = {}) {
       await accountRequest('/api/auth/logout', {});
       location.reload();
     } catch (error) { closing = false; show(error.message, true); }
-    finally { button.disabled = false; }
-  });
+    finally { if (button) button.disabled = false; }
+  }
   window.addEventListener('online', flush);
   window.addEventListener('pagehide', () => { if (pending) { try { cache(); } catch { /* Already cached on each change. */ } } });
   window.addEventListener('beforeunload', event => { if (pending && !closing) { event.preventDefault(); event.returnValue = ''; } });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && pending) flush(); });
-  $('#account-sync').hidden = false;
   if (conflict) showConflict();
   else if (pending) timer = setTimeout(flush, 0);
   else show('資料已同步');
-  return { save, flush, sessionExpired() { expired = true; show('登入已到期，請重新登入。尚未同步的變更仍保留在此裝置。', true); } };
+  return { save, flush, logout, sessionExpired() { expired = true; show('登入已到期，請重新登入。尚未同步的變更仍保留在此裝置。', true); } };
 }
