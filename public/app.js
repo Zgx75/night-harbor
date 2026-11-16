@@ -25,7 +25,8 @@ const icons = {
   check: '<path d="m5 12 4 4L19 6"/>',
   download: '<path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/>',
   shop: '<path d="M5 8h14l-1 12H6Z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>'
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  back: '<path d="M19 12H5m5-5-5 5 5 5"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.moon}</svg>`;
 $$('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
@@ -102,6 +103,9 @@ function render() {
   document.body.dataset.page = page;
   const accountButton=$('#account-button');
   if(accountButton){if(page==='user')accountButton.setAttribute('aria-current','page');else accountButton.removeAttribute('aria-current');}
+  // The home page (夥伴) has nowhere to go back to; every other page offers a way back.
+  const backButton=$('#back-button');
+  if(backButton)backButton.hidden=page==='pet';
   $$('.nav-link').forEach(a => { a.classList.toggle('active',a.dataset.nav===page); if(a.dataset.nav===page) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   const html = ({ pet:extras.petHTML, shop:extras.shopHTML, reports:extras.reportsHTML, logs:logsHTML, settings:settingsHTML, social:social.html, user:userHTML })[page]();
   $('#main').innerHTML = (state.demo?'<section class="demo-banner"><span><strong>示範模式</strong> · 寵物、金幣與兩週紀錄皆為虛構，操作不會寫入原本資料。</span><button class="button secondary small" id="exit-demo">回到我的資料</button></section>':'') + html;
@@ -209,7 +213,15 @@ function checkNudge() {
   const point=state.plan?.points?.[0];
   if(canNudge({enabled:state.settings.reminders,visible:document.visibilityState==='visible',flow:state.flow,handled:state.nudgeDate===nightDate(),snoozedUntil:state.snoozedUntil,lastActivity:state.lastActivity,point,now:Date.now()})){state.nudgeDate=nightDate();showNudge();}
 }
-window.addEventListener('hashchange',()=>{render();if(view()==='social')social.refresh();if(view()==='user')me.refresh();window.scrollTo({top:0});});
+// How many steps into the app this page is, so "back" can never take someone out of the app.
+let stepIndex=Number.isInteger(history.state?.appStep)?history.state.appStep:0;
+if(!Number.isInteger(history.state?.appStep))history.replaceState({appStep:0},'');
+function trackStep() {
+  if(Number.isInteger(history.state?.appStep)){stepIndex=history.state.appStep;return;}
+  stepIndex+=1;history.replaceState({appStep:stepIndex},'');
+}
+$('#back-button').addEventListener('click',()=>{if(stepIndex>0)history.back();else location.hash='#pet';});
+window.addEventListener('hashchange',()=>{trackStep();render();if(view()==='social')social.refresh();if(view()==='user')me.refresh();window.scrollTo({top:0});});
 for(const type of ['pointerdown','keydown','touchstart'])document.addEventListener(type,()=>state.lastActivity=Date.now(),{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){state.lastActivity=Date.now();checkNudge();}});
 setInterval(()=>{if(state.lastPlanDate!==nightDate()){updatePlan().then(()=>{if((view()==='settings'||view()==='reports')&&!document.activeElement?.matches('input,textarea,select'))render();checkNudge();}).catch(()=>{});}else checkNudge();},30000);

@@ -22,9 +22,9 @@ body[data-auth]:not([data-auth=ready]) .skip-link{display:none}
 .auth-note{font-size:11px;color:var(--faint);line-height:1.9;margin-top:22px}
 #auth-loading{font-size:12px;color:var(--gold);margin:0 0 16px}
 .account-tools{display:flex;align-items:center;gap:10px;min-width:0}
-.account-button{display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--line);border-radius:50%;color:var(--muted);transition:color .18s,border-color .18s,background .18s}
-.account-button svg{width:21px;height:21px}
-.account-button:hover,.account-button[aria-current=page]{color:var(--lilac);border-color:#c7b9e74d;background:#c7b9e711}
+.account-button,.back-button{display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--muted);transition:color .18s,border-color .18s,background .18s}
+.account-button svg,.back-button svg{width:21px;height:21px}
+.account-button:hover,.account-button[aria-current=page],.back-button:hover{color:var(--lilac);border-color:#c7b9e74d;background:#c7b9e711}
 .user-identity{display:grid;gap:6px;margin-bottom:6px}
 .user-identity strong{font-size:22px;font-weight:700;overflow-wrap:anywhere}
 .user-identity small{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
