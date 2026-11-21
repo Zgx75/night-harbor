@@ -7,9 +7,10 @@ import { AppError } from './ai.mjs';
 import { cleanRecords } from './domain.mjs';
 import { createAdviceGenerator } from './advice.mjs';
 import { knowledge } from './knowledge.mjs';
-import { reportData, reportQuestion, reportFacts } from './reports.mjs';
 import { createPlanGenerator } from './planner.mjs';
 import { createAccountStore } from './accounts.mjs';
+import { weeklyFacts, weeklyQuestion } from './weekly.mjs';
+import { monthlyFacts, monthlyQuestion, monthSnapshot } from './monthly.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -65,7 +66,7 @@ export function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process
         if (req.method === 'GET' && url.pathname === '/api/profile') return send(res, 200, accounts.profile(accounts.requireUser(req).id));
         const socialPath=url.pathname==='/api/social'?'':url.pathname.startsWith('/api/social/')?url.pathname.slice('/api/social/'.length):null;
         const isAuth = ['/api/auth/login', '/api/auth/register', '/api/auth/logout'].includes(url.pathname);
-        const knownOperation = ['/api/profile', '/api/records/validate', '/api/plan', '/api/advice', '/api/reports', '/api/reports/advice'].includes(url.pathname);
+        const knownOperation = ['/api/profile', '/api/records/validate', '/api/plan', '/api/advice', '/api/reports/weekly', '/api/reports/monthly'].includes(url.pathname);
         if (!isAuth && !knownOperation && url.pathname !== '/api/knowledge' && socialPath===null) throw new AppError(404, 'NOT_FOUND', '找不到這個操作。');
         const user = isAuth ? null : accounts.requireUser(req);
         if(req.method==='GET'&&socialPath!==null) {
@@ -101,11 +102,13 @@ export function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process
         if (url.pathname === '/api/records/validate') return send(res, 200, { records: cleanRecords(data.records) });
         if (url.pathname === '/api/plan') return send(res, 200, await generatePlan(data));
         if (url.pathname === '/api/advice') return send(res, 200, await generateAdvice({question:data.question,records:data.records,asOf:data.asOf}));
-        if (url.pathname === '/api/reports') return send(res,200,reportData(data,now()));
-        if (url.pathname === '/api/reports/advice') {
-          const report=reportData(data,now());
-          const question=reportQuestion(report,data.mode);
-          return send(res,200,{report,advice:await generateAdvice({question,records:data.records,asOf:data.asOf,reportContext:reportFacts(report,data.mode)})});
+        if (url.pathname === '/api/reports/weekly' || url.pathname === '/api/reports/monthly') {
+          const monthly=url.pathname.endsWith('/monthly');
+          const facts=monthly?monthlyFacts(data,now()):weeklyFacts(data,now());
+          const advice=await generateAdvice({question:monthly?monthlyQuestion(facts):weeklyQuestion(facts),records:data.records,asOf:data.asOf,reportContext:facts});
+          // One small step only; sources are limited to the ones that step cites.
+          const suggestion=advice.suggestions?.[0]||null;
+          return send(res,200,{start:facts.start,end:facts.end,generatedOn:data.asOf,answer:advice.answer,suggestion,sources:(advice.sources||[]).filter(s=>suggestion?.sourceIds.includes(s.id)).map(({id,title,publisher,url})=>({id,title,publisher,url})),...(monthly?{snapshot:monthSnapshot(data,now())}:{})});
         }
         throw new AppError(404, 'NOT_FOUND', '找不到這個操作。');
       }

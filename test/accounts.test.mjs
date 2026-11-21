@@ -37,7 +37,7 @@ test('signed-out users see the login shell but cannot access profile or AI endpo
   const f = await fixture(t), anon = f.browser();
   assert.deepEqual(await (await anon.request('/api/auth/session')).json(), { user: null });
   for (const route of ['/api/profile', '/api/knowledge']) assert.equal((await anon.request(route)).status, 401);
-  for (const route of ['/api/plan', '/api/advice', '/api/reports', '/api/reports/advice']) assert.equal((await anon.request(route, {})).status, 401);
+  for (const route of ['/api/plan', '/api/advice', '/api/reports/weekly', '/api/reports/monthly']) assert.equal((await anon.request(route, {})).status, 401);
   const html = await (await anon.request('/')).text();
   assert.match(html, /id="auth-screen"/);
   assert.match(html, /id="app-shell" hidden/);
@@ -74,7 +74,8 @@ test('each account owns its records, pet, coins, settings and saved goals', asyn
   const result = await (await a.request('/api/profile')).json();
   assert.equal(result.profile.economy.pet.name, profile.economy.pet.name);
   assert.equal(result.profile.economy.credits.length, profile.economy.credits.length);
-  assert.equal(result.profile.records.length, 14);
+  assert.equal(result.profile.records.length, profile.records.length);
+  assert.deepEqual(result.profile.factorSurveys, profile.factorSurveys);
   assert.equal(result.profile.settings.reminders, true);
   assert.deepEqual(await (await b.request(`/api/profile?userId=${first.id}`)).json().then(data => data.profile), {});
   const device = f.browser();

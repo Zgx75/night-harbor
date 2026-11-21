@@ -28,7 +28,6 @@ export function snapshotTargets(existing,points,now=Date.now()) {
   }
   return Object.fromEntries(Object.entries(targets).sort(([a],[b])=>a.localeCompare(b)).slice(-90));
 }
-const avg = a => a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 export function formatClock(m) { if(m==null)return '—';m=Math.round(m);return `${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
 export function createEconomy() {return {pet:null,credits:[],bonusCredits:[],transactions:[],inventory:[],equipped:{},affection:50};}
 export function normaliseEconomy(value) {
@@ -91,46 +90,15 @@ export function petTransaction(economy,event,now=Date.now()) {
   }
   throw new Error('無法完成這個操作。');
 }
-export function factorClues(records,date) {
-  const row=records.find(r=>r.date===date)||{}, prior=records.find(r=>r.date===addDays(date,-1))||{};
-  const night=addDays(date,-1),bed=timeOK(row.bedAt)?nightInstant(night,nightMinute(row.bedAt)):null;
-  const gap=t=>bed==null||!timeOK(t)?null:(bed-nightInstant(night,min(t)))/3600000;
-  const caffeineGap=gap(prior.caffeineAt),exerciseGap=gap(prior.exerciseAt);
-  return [
-    {id:'caffeine',title:'咖啡因',known:Boolean(prior.caffeineAt),flag:caffeineGap!=null&&caffeineGap>=0&&caffeineGap<=8,evidence:prior.caffeineAt?`前一天最後記錄 ${prior.caffeineAt}`:'前一天的咖啡因時間未填',tip:'可觀察下午、晚間飲用與自己的睡眠感受。',sourceIds:['K1']},
-    {id:'exercise',title:'運動',known:Boolean(prior.exerciseAt),flag:prior.exerciseIntensity==='vigorous'&&exerciseGap!=null&&exerciseGap>=0&&exerciseGap<=1,evidence:prior.exerciseAt?`前一天運動結束 ${prior.exerciseAt}${prior.exerciseIntensity==='vigorous'?' · 較高強度':''}`:'前一天的運動時間未填',tip:'留意強度及距離就寢的間隔，並非所有晚間運動都會妨礙睡眠。',sourceIds:['K3','K7']},
-    {id:'screen',title:'睡前螢幕',known:row.screenMinutes!=null,flag:row.screenMinutes>0,evidence:row.screenMinutes!=null?`睡前一小時使用 ${row.screenMinutes} 分鐘`:'睡前螢幕時間未填',tip:'可以先試著把睡前最後一段螢幕時間換成安靜活動。',sourceIds:['K8']},
-    {id:'mood',title:'睡前情緒',known:row.mood!=null,flag:row.mood>=4,evidence:row.mood!=null?`緊繃程度 ${row.mood} / 5`:'睡前情緒未填',tip:'把還掛心的事寫成明天的一個小步驟。',sourceIds:['K4']},
-    {id:'nap',title:'白天午睡',known:prior.napMinutes!=null,flag:prior.napMinutes>20,evidence:prior.napMinutes!=null?`前一天午睡 ${prior.napMinutes} 分鐘`:'前一天午睡時長未填',tip:'如果夜間難入睡，可以觀察較短、較早的午睡是否更適合自己。',sourceIds:['K9']}
-  ];
-}
-export function dailyReport(records,targets,date,plan,now=Date.now()) {
-  const row=records.find(r=>r.date===date)||null;
-  return {date,night:addDays(date,-1),record:row,adherence:assessNight(row,targets,now),factors:factorClues(records,date),tonight:plan?.points?.[0]||null,insomnia:row?.insomnia||'unknown',quality:row?.sleepQuality??null};
-}
-function windowStats(records,targets,start,end,now) {
-  const rows=records.filter(r=>r.date>=start&&r.date<=end),assessments=rows.map(r=>assessNight(r,targets,now));
-  const comparable=assessments.filter(r=>['on-time','late'].includes(r.status));
-  const quality=rows.filter(r=>r.sleepQuality!=null).map(r=>r.sleepQuality);
-  const fatigue=rows.filter(r=>r.fatigue!=null).map(r=>r.fatigue);
-  const bedtimes=rows.filter(r=>timeOK(r.bedAt)&&nightMinute(r.bedAt)>=1080&&nightMinute(r.bedAt)<=1800).map(r=>nightMinute(r.bedAt));
-  const sleep=rows.filter(r=>timeOK(r.sleepAt)&&nightMinute(r.sleepAt)>=1080&&nightMinute(r.sleepAt)<=1800).map(r=>nightMinute(r.sleepAt));
-  const symptoms=rows.filter(r=>r.insomnia==='yes'||r.insomnia==='no');
-  return {start,end,rows,recordDays:rows.length,quality:avg(quality),qualityCount:quality.length,fatigue:avg(fatigue),fatigueCount:fatigue.length,bedtime:avg(bedtimes),bedtimeCount:bedtimes.length,sleepAt:avg(sleep),sleepAtCount:sleep.length,onTime:comparable.filter(r=>r.status==='on-time').length,comparableDays:comparable.length,onTimeRate:comparable.length?comparable.filter(r=>r.status==='on-time').length/comparable.length:null,insomniaDays:symptoms.filter(r=>r.insomnia==='yes').length,insomniaKnown:symptoms.length};
-}
-export function weeklyReport(records,targets,end,now=Date.now()) {
-  const current=windowStats(records,targets,addDays(end,-6),end,now), previous=windowStats(records,targets,addDays(end,-13),addDays(end,-7),now);
-  const compare=(key,count,invert=false)=>current[count]>=3&&previous[count]>=3?(invert?previous[key]-current[key]:current[key]-previous[key]):null;
-  const trend=Array.from({length:7},(_,i)=>{const date=addDays(end,i-6),r=current.rows.find(r=>r.date===date);return {date,bedAt:r?.bedAt||'',sleepAt:r?.sleepAt||'',quality:r?.sleepQuality??null,insomnia:r?.insomnia||'unknown',adherence:assessNight(r,targets,now)};});
-  const factorSummary=['caffeine','exercise','screen','mood','nap'].map(id=>{
-    const all=current.rows.map(r=>({r,f:factorClues(records,r.date).find(f=>f.id===id)}));
-    return {id,title:all[0]?.f.title||({caffeine:'咖啡因',exercise:'運動',screen:'睡前螢幕',mood:'睡前情緒',nap:'白天午睡'}[id]),known:all.filter(x=>x.f.known).length,flagged:all.filter(x=>x.f.flag).length,coReported:all.filter(x=>x.f.flag&&x.r.insomnia==='yes').length};
-  });
-  return {current,previous,trend,factorSummary,changes:{earlierBedtime:compare('bedtime','bedtimeCount',true),quality:compare('quality','qualityCount'),lessFatigue:compare('fatigue','fatigueCount',true),onTimeRate:compare('onTimeRate','comparableDays')}};
-}
-
 export function demoProfile(today) {
   const records=[],targets={};
+  // Two earlier weeks (fictional) so the 28-day review is complete: about 02:00 to bed, all late,
+  // recorded with the current two-field form. The latest 14 days below are unchanged.
+  for(let k=0;k<14;k++) {
+    const date=addDays(today,k-27),night=addDays(date,-1);
+    records.push({date,bedAt:formatClock(1550+(k%3)*10),sleepQuality:[2,2,3,2,2,3,2][k%7]});
+    targets[night]={bedtime:'01:30',createdAt:new Date(nightInstant(night,1080)).toISOString()};
+  }
   for(let i=0;i<14;i++) {
     const date=addDays(today,i-13),night=addDays(date,-1),recent=i>=7;
     const bed=recent?1465+(i%3)*10:1535+(i%3)*10,target=recent?'00:45':'01:30';
@@ -139,5 +107,9 @@ export function demoProfile(today) {
   }
   let economy=petTransaction(createEconomy(),{type:'adopt',id:'fox',name:'栗子（示範）'});
   for(const row of records)economy=awardNight(economy,row,targets,nightInstant(today,1440)).economy;
-  return {records,targets,economy,settings:{currentBedtime:'01:30',targetBedtime:'23:30',wakeTime:'08:30',reminders:false,saveClosures:true},closures:[]};
+  // One answered follow-up from the late weeks, so reviews can show factors reported on late days.
+  const asked=addDays(today,-20);
+  const factorSurveys=[{id:`round-${asked}`,status:'completed',triggeredOn:asked,completedOn:asked,lateDates:[addDays(asked,-2),addDays(asked,-1),asked],
+    answers:{factors:['caffeine','media'],caffeine:{taken:'yes',drinks:['coffee','energy'],amount:'two',lastAt:'19:00'},media:{delayed:'yes'}}}];
+  return {records,targets,economy,factorSurveys,settings:{currentBedtime:'01:30',targetBedtime:'23:30',wakeTime:'08:30',reminders:false,saveClosures:true},closures:[]};
 }

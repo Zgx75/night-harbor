@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preparePlan,validatePlanReply,createPlanGenerator} from '../planner.mjs';
+import {preparePlan,validatePlanReply,createPlanGenerator,holdSignals} from '../planner.mjs';
 import {planInputKey,cachedPlan,lockedTarget} from '../public/plan-state.js';
 import {snapshotTargets,assessNight} from '../public/progress.js';
-import {reportData} from '../reports.mjs';
+import {nightMinutes} from '../domain.mjs';
 const now=Date.parse('2026-10-15T12:00:00+08:00');
 const input={records:[],currentBedtime:'03:00',targetBedtime:'23:00',wakeTime:'08:00',asOf:'2026-10-15',targets:{}};
 const reply=(bedtime='02:40')=>({bedtime,reason:`目前自填通常03:00上床，最終希望23:00；先暫定今晚${bedtime}，之後依紀錄調整。`,observations:['還沒有近期睡眠紀錄。'],nextStep:'先在睡前安排安靜活動。',sourceIds:['K2']});
@@ -45,13 +45,8 @@ test('saved nightly agreement survives deadline and is the same target used by r
   const after=Date.parse('2026-10-16T08:00:00+08:00');
   const record={date:'2026-10-16',bedAt:'02:50',sleepAt:'04:00',insomnia:'yes'};
   assert.equal(assessNight(record,targets,after).eligible,true);
-  const report=reportData({records:[],targets,settings:input,mode:'daily',asOf:'2026-10-15'},now);
-  assert.equal(report.tonight.bedtime,'02:40');
   const generate=createPlanGenerator({apiKey:'test',now:()=>after,fetchImpl:async()=>{throw new Error('Must not run');}});
   const frozen=await generate({...input,targets});assert.equal(frozen.locked,true);assert.equal(frozen.points[0].bedtime,'02:40');
-});
-test('report without a saved target does not silently substitute fixed-step time',()=>{
-  const r=reportData({records:[],targets:{},settings:input,mode:'daily',asOf:'2026-10-15'},now);assert.equal(r.tonight,null);
 });
 test('AI cannot create a new bedtime that already passed tonight',()=>{
   const late=Date.parse('2026-10-16T02:50:00+08:00'),ctx=preparePlan(input,late);
@@ -64,4 +59,22 @@ test('cache changes on daily data, final goal or new night; saved plan is stable
   assert.notEqual(planInputKey({...input,targetBedtime:'23:30'},[],input.asOf),key);
   assert.equal(cachedPlan(cache,key,'2026-10-16'),null);
   assert.equal(lockedTarget({bedtime:'02:40'},input.asOf,Date.parse('2026-10-16T02:40:00+08:00')),true);
+});
+
+test('hold signals list only recorded reasons, and with none the model is told to move earlier',async()=>{
+  const day=(date,bedAt,extra={})=>({date,bedAt,sleepQuality:4,...extra});
+  const steady=[day('2026-10-12','02:30'),day('2026-10-13','02:20'),day('2026-10-14','02:40'),day('2026-10-15','02:30')];
+  assert.deepEqual(preparePlan({...input,currentBedtime:'02:30',targetBedtime:'00:30',records:steady},now).holdSignals,[]);
+  const rough=[day('2026-10-13','02:30'),day('2026-10-14','02:20',{sleepQuality:2}),day('2026-10-15','03:20',{fatigue:5})];
+  const signals=holdSignals(rough,[],nightMinutes('02:30'));
+  assert.equal(signals.length,3);assert.match(signals[0],/03:20.*晚 50 分鐘/);assert.match(signals[1],/1 晚睡眠品質/);assert.match(signals[2],/疲勞/);
+  const late=holdSignals([day('2026-10-15','01:10')],[{date:'2026-10-15',status:'late'}],nightMinutes('01:00'));
+  assert.match(late[0],/1 晚比當晚目標晚超過 15 分鐘/);
+  // Already at the final goal: nothing to hold against.
+  const atGoal=['2026-10-13','2026-10-14','2026-10-15'].map(d=>day(d,'23:00',{sleepQuality:2}));
+  assert.deepEqual(preparePlan({...input,currentBedtime:'23:00',targetBedtime:'23:30',records:atGoal},now).holdSignals,[]);
+  let sent,system;
+  const generate=createPlanGenerator({apiKey:'test',now:()=>now,fetchImpl:async(_u,o)=>{const b=JSON.parse(o.body);system=b.systemInstruction.parts[0].text;sent=JSON.parse(b.contents[0].parts[0].text);return response(reply('02:10'));}});
+  await generate({...input,currentBedtime:'02:30',targetBedtime:'00:30',records:steady});
+  assert.deepEqual(sent.holdSignals,[]);assert.match(system,/holdSignals 是空陣列時，今晚必須比參考起點提早 10 到 30 分鐘/);assert.match(system,/不是維持的理由/);assert.match(system,/不能出現 holdSignals、陣列、規定、界限/);
 });

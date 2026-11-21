@@ -1,0 +1,27 @@
+/* First-login questionnaire */
+.survey-progress{display:block;width:100%;height:6px;margin:0 0 8px;border:0;border-radius:6px;overflow:hidden;background:var(--line);appearance:none}
+.survey-progress::-webkit-progress-bar{background:var(--line);border-radius:6px}
+.survey-progress::-webkit-progress-value{background:var(--lilac);border-radius:6px}
+.survey-progress::-moz-progress-bar{background:var(--lilac);border-radius:6px}
+.survey-step{margin:0 0 16px;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.survey-form{display:flex;flex-direction:column;gap:6px}
+.survey-question{margin:0 0 18px;padding:0;border:0;min-width:0}
+.survey-question legend{padding:0;margin-bottom:8px;font-weight:600;color:var(--text)}
+.survey-question>.field-hint{margin:-4px 0 10px}
+.survey-question select,.survey-question>input[type=time]{min-width:160px;max-width:100%}
+.survey-block{margin:0 0 18px;padding:16px 18px 2px;border:1px solid var(--line);border-radius:18px;background:var(--panel-soft)}
+.survey-block h3{margin:0 0 10px;font-size:15px}
+.choice-row{display:flex;flex-wrap:wrap;gap:8px}
+.choice-pill{position:relative;display:inline-flex;cursor:pointer}
+.choice-pill input,.visually-hidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);margin:0}
+.choice-pill span{display:inline-block;padding:8px 15px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:14px;line-height:1.4}
+.choice-pill:hover span{color:var(--text)}
+.choice-pill input:checked+span{border-color:var(--lilac);background:#c7b9e71a;color:var(--text)}
+.choice-pill input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
+.survey-form .pet-choices{margin:6px 0 16px}
+.survey-form .pet-choice{position:relative;cursor:pointer;text-align:center}
+.survey-form .pet-choice:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:2px}
+.survey-prompt{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.survey-prompt h2{margin-top:0}
+.survey-prompt p{margin-bottom:0}
+@media(max-width:760px){.survey-form .pet-choices{grid-template-columns:repeat(3,1fr)}.choice-pill span{padding:8px 12px}.survey-block{padding:14px 14px 2px}}
