@@ -55,3 +55,9 @@
 .room-clock .clock-colon circle{fill:currentColor}.room-clock .clock-colon{opacity:.3;animation:clock-blink 1s steps(1,end) infinite}
 @keyframes clock-blink{0%{opacity:.3}50%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.room-clock .clock-colon{animation:none}}
+/* The shared room has its own colours so it never looks like your own room: a teal wall, a green floor and a round window. */
+.pet-room.is-group{background:#203638;border-color:#4d7676}
+.pet-room.is-group .room-window{background:#14272c;border-color:#3f6a68;border-radius:50%;height:120px;width:120px;padding-top:30px;color:#9fe0cf}
+.pet-room.is-group .room-floor{background:#2f4a3f;border-top-color:#79b59a66}
+.pet-room.is-group .room-rug{background:#4f8a7a55;border-color:#9fe0cf33}
+@media(max-width:760px){.pet-room.is-group .room-window{width:90px;height:90px;padding-top:20px}}

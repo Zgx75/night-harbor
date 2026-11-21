@@ -1,4 +1,4 @@
-import { lineText, weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
+import { weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
 import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
 import { PETS,FURNITURE,careForPet,RENAME_COST,affectionNow,growth as growthPoints,POINTS_PER_LEVEL,SLEEP_POINTS,CARE_POINTS,CARE_LEVEL,itemSpot,clampSpot,iconSize,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
@@ -233,8 +233,7 @@ export function createExtras(ctx) {
     if(!pet)return `${heading}<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`;
     const actions=state.decorating?'':`<span class="nameplate-actions"><a class="button small shop-entry" href="${shopHash()}">${icon('shop')}商店</a><button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button></span>`;
     const nameplate=`<div class="pet-nameplate"><h2>${canRename()?nameButton(pet.name):esc(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${actions}</div>`;
-    const bubble=!inGroup()&&todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:'';
-    const room=`<section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div><div class="room-clock" aria-hidden="true" data-time="${clockText()}">${clockSVG(clockText())}</div>${furniture()}${state.decorating?'':`${bubble}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>`;
+    const room=`<section class="pet-room${inGroup()?' is-group':''}${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>${inGroup()?'✦':'☾'}</span><i>${inGroup()?'☾':'✧'}</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div><div class="room-clock" aria-hidden="true" data-time="${clockText()}">${clockSVG(clockText())}</div>${furniture()}${state.decorating?'':`<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>`;
     // Under the room: my room has the way to the group's room, and the group's room has the way back.
     const entry=inGroup()?(state.decorating?'':'<div class="group-entry-slot"><a class="button secondary group-entry" href="#pet">← 我的房間</a></div>'):`<div id="group-entry" class="group-entry-slot">${groupEntryHTML()}</div>`;
     const care=`<div class="pet-care"><div><span class="care-label">${inGroup()?'和大家相處的滿足感':'和你相處的滿足感'}</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!roomAfford(5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 🪙</button></div>`;
@@ -252,7 +251,6 @@ export function createExtras(ctx) {
     }).join('');
     return `${heading}<div class="section-heading"><h2>${'替小房間添一點喜歡的東西'}</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${cards}</div>`;
   }
-  const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
   function changeText(value,unit,positive='增加',negative='減少') {
     if(value==null)return '<span class="comparison-missing">兩段期間各需至少三筆可比較紀錄</span>';
