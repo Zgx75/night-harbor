@@ -13,6 +13,8 @@
     "public": "node scripts/start-fixed-url.mjs",
     "dev": "node --watch src/server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "demo": "node scripts/start-demo.mjs",
+    "demo:reset": "node scripts/start-demo.mjs --reset"
   }
 }
