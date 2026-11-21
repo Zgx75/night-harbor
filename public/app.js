@@ -36,8 +36,11 @@ const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 $$('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
 const account = await openAccount();
 const profileSync = createProfileSync(account,{onSaved:profile=>{
-  state.economy=normaliseEconomy(profile.economy);
-  if(view()==='pet'&&!document.activeElement?.matches('input,textarea,select'))render();
+  // The server normally echoes back exactly what this page already shows. Drawing the page again then would
+  // only restart the pet (it would jump to its walking destination and lose a reaction in progress).
+  const next=normaliseEconomy(profile.economy),changed=JSON.stringify(next)!==JSON.stringify(state.economy);
+  state.economy=next;
+  if(changed&&view()==='pet'&&!document.activeElement?.matches('input,textarea,select'))render();
 }});
 const defaults = { currentBedtime: '', targetBedtime: '00:30', wakeTime: '08:30', reminders: false, saveClosures: true };
 const initial = account.profile || {};

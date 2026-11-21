@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEconomy,petTransaction,awardNight,balance,assessNight,addDays,snapshotTargets,normaliseEconomy,clampSpot,itemSpot,FURNITURE,FLOOR_TOP } from '../public/progress.js';
+import { createEconomy,petTransaction,awardNight,balance,assessNight,addDays,snapshotTargets,normaliseEconomy,clampSpot,itemSpot,iconSize,FURNITURE,FLOOR_TOP,level,growth,awakeHours,affectionNow,decayPerHour,careForPet,AFFECTION_FLOOR,RENAME_COST } from '../public/progress.js';
 import {cleanRecords} from '../src/domain.mjs';
 import {makePlan} from '../src/domain.mjs';
 import {cleanTargets} from '../src/reports/reports.mjs';
@@ -92,4 +92,73 @@ test('any number of pieces of one kind can stand in the room, and older accounts
   const legacy=normaliseEconomy({pet:{id:'cat',name:'a'},inventory:['cushion','plant','ball'],equipped:{bed:'cushion',toy:'ball',plant:'tent'}});
   assert.deepEqual(legacy.placed.sort(),['ball','cushion'],'unowned pieces in the old data are dropped');
   assert.equal(legacy.equipped,undefined);
+});
+
+test('every piece has its own size, roughly in proportion to the real object',()=>{
+  const size=Object.fromEntries(FURNITURE.map(f=>[f.id,f.size]));
+  for(const f of FURNITURE){assert.ok(Number.isFinite(f.size)&&f.size>=20&&f.size<=120,f.id);}
+  assert.ok(new Set(Object.values(size)).size>10,'sizes are not all the same');
+  assert.ok(size.sofa>size.teddy&&size.tent>size.plant&&size.plant>size.candle&&size.piano>size.radio&&size.teddy>size.ball);
+  assert.ok(FURNITURE.every(f=>iconSize(f)>=24&&iconSize(f)<=56),'icons stay readable and fit the cards');
+});
+
+// 2026-11-10 07:00 on a clock at UTC (offset 0); waking hours 07:00 to 23:00.
+const at=(day,time)=>Date.parse(`2026-11-${day}T${time}:00Z`),sleep={wake:'07:00',bed:'23:00'};
+const withPet=extra=>({...createEconomy(),pet:{id:'cat',name:'a'},bonusCredits:[{id:'g',type:'group',amount:1000}],...extra});
+
+test('only the awake hours count, and a usual sleeping time never takes satisfaction away',()=>{
+  assert.equal(awakeHours(at('10','22:00'),at('11','08:00'),sleep,0),2,'22:00-23:00 and 07:00-08:00');
+  assert.equal(awakeHours(at('10','23:00'),at('11','07:00'),sleep,0),0,'a whole night of sleep');
+  assert.equal(awakeHours(at('10','07:00'),at('10','23:00'),sleep,0),16);
+  // The player's own clock decides which hours are awake.
+  assert.equal(awakeHours(at('10','22:00'),at('11','08:00'),sleep,480),9,'on a clock 8 hours ahead that is 06:00-16:00, of which 07:00-16:00 is awake');
+  // A bedtime after midnight means the awake hours run past 00:00.
+  assert.equal(awakeHours(at('10','23:00'),at('11','01:00'),{wake:'08:00',bed:'02:00'},0),2);
+});
+test('satisfaction falls with the awake hours, faster at higher levels, and never below the floor',()=>{
+  const e=withPet({affection:100,affectionAt:new Date(at('10','07:00')).toISOString()});
+  assert.equal(affectionNow(e,at('10','17:00'),sleep,0),80,'level 1 loses 2 a hour');
+  assert.equal(affectionNow(e,at('11','07:00'),sleep,0),68,'16 awake hours, none of them while asleep');
+  assert.equal(affectionNow(e,at('10','07:00')-1000,sleep,0),100,'a clock set back never raises or lowers it');
+  assert.equal(affectionNow(e,at('10','07:00')+20*86400000,sleep,0),AFFECTION_FLOOR,'a long absence stops at the floor');
+  assert.equal(affectionNow({...e,affection:12},at('15','07:00'),sleep,0),12,'a value already below the floor stays');
+  assert.equal(affectionNow({...e,affectionAt:null},at('20','07:00'),sleep,0),100,'an account whose clock has not started loses nothing');
+  assert.equal(decayPerHour(1),2);assert.ok(decayPerHour(4)>2&&decayPerHour(4)<2.5);assert.equal(decayPerHour(6),2.5);assert.equal(decayPerHour(40),2.5);
+  const lv5={...e,credits:Array.from({length:16},(_,i)=>({night:`2026-10-${String(i+10)}`,amount:20}))};
+  assert.equal(level(lv5),5);assert.equal(Math.round(affectionNow(lv5,at('10','17:00'),sleep,0)),100-10*2.4);
+});
+test('feeding adds 15 on top of what is left, costs coins, and a day at 70 or more counts as care',()=>{
+  const start=new Date(at('10','07:00')).toISOString();
+  let e=withPet({affection:100,affectionAt:start,transactions:[]});
+  const feed=(eco,time,over={})=>careForPet(eco,{now:at('10',time),sleep,offset:0,day:'2026-11-10',...over});
+  assert.throws(()=>feed(e,'07:00'),/已經很滿足/,'a full pet cannot be fed');
+  e=feed(e,'17:00');                    // 80 left after ten hours; feeding fills it up
+  assert.equal(e.affection,95);assert.equal(e.transactions.at(-1).cost,5);assert.deepEqual(e.careDays,['2026-11-10']);
+  e=feed({...e,affection:50},'18:00');  // a second feeding the same day is not counted twice
+  assert.equal(e.careDays.length,1);
+  const low=withPet({affection:40,affectionAt:start});
+  const fed=careForPet(low,{now:at('10','07:00'),sleep,offset:0,day:'2026-11-10'});
+  assert.equal(fed.affection,55);assert.deepEqual(fed.careDays,[],'55 is below 70, so no care credit yet');
+  assert.throws(()=>careForPet({...createEconomy(),pet:{id:'cat',name:'a'},affection:30},{now:at('10','07:00')}),/需要 5 枚金幣/);
+  assert.equal(careForPet({...createEconomy(),pet:{id:'cat',name:'a'},affection:30},{now:at('10','07:00'),free:true}).transactions.length,0,'free feeding costs nothing');
+});
+test('growth counts on-time nights and care days; old accounts keep their level',()=>{
+  const nights=n=>Array.from({length:n},(_,i)=>({night:`2026-09-${String(i+1).padStart(2,'0')}`,amount:20}));
+  assert.equal(level({...createEconomy(),credits:nights(3)}),1);assert.equal(level({...createEconomy(),credits:nights(4)}),2);assert.equal(level({...createEconomy(),credits:nights(8)}),3);
+  const e={...createEconomy(),credits:nights(2),careDays:['2026-10-01','2026-10-02','2026-10-03','2026-10-04']};
+  assert.equal(growth(e),16);assert.equal(level(e),2,'two nights (8) and four care days (8) make one level');
+  const saved=normaliseEconomy({pet:{id:'cat',name:'a'},affection:70,affectionAt:'2026-11-10T00:00:00Z',careDays:['2026-11-10','2026-11-10','bad','2026-11-09']});
+  assert.deepEqual(saved.careDays,['2026-11-09','2026-11-10'],'duplicates and bad dates are dropped');assert.equal(saved.affectionAt,'2026-11-10T00:00:00.000Z');
+  assert.equal(normaliseEconomy({affectionAt:'nope'}).affectionAt,null);
+});
+
+test('renaming the pet costs coins, is validated, and never changes its kind',()=>{
+  const e=withPet({pet:{id:'fox',name:'栗子'}});
+  const renamed=petTransaction(e,{type:'rename',name:'  糯米 '},Date.now());
+  assert.equal(renamed.pet.name,'糯米');assert.equal(renamed.pet.id,'fox');assert.equal(balance(e)-balance(renamed),RENAME_COST);
+  assert.throws(()=>petTransaction(e,{type:'rename',name:''}),/1 到 16/);
+  assert.throws(()=>petTransaction(e,{type:'rename',name:'x'.repeat(17)}),/1 到 16/);
+  assert.throws(()=>petTransaction(e,{type:'rename',name:'栗子'}),/已經是/);
+  assert.throws(()=>petTransaction({...createEconomy(),pet:{id:'fox',name:'a'}},{type:'rename',name:'b'}),/金幣/);
+  assert.throws(()=>petTransaction(createEconomy(),{type:'rename',name:'b'}),/先選一位/);
 });

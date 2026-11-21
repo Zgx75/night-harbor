@@ -1,6 +1,6 @@
 import { lineText, weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
 import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
-import { PETS,FURNITURE,SLOT_LABELS,itemSpot,clampSpot,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
+import { PETS,FURNITURE,careForPet,RENAME_COST,affectionNow,growth as growthPoints,POINTS_PER_LEVEL,SLEEP_POINTS,CARE_POINTS,CARE_LEVEL,itemSpot,clampSpot,iconSize,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
   const {state,api,persist,render,toast,esc,icon,localDate,userId}=ctx;
@@ -29,11 +29,6 @@ export function createExtras(ctx) {
     const result=awardNight(state.economy,record,state.targets);state.economy=result.economy;
     return result.awarded?result.reason:'';
   }
-  function pendingRewards() {
-    let economy=state.economy,total=0;
-    for(const row of state.records){const r=awardNight(economy,row,state.targets);economy=r.economy;total+=r.awarded;}
-    return {economy,total};
-  }
   function applyPet(event,message) {
     try{
       const old=state.economy;state.economy=spend(old,event);
@@ -43,7 +38,7 @@ export function createExtras(ctx) {
   }
   function adoptionHTML() {
     const id=state.petDraft||state.economy.pet?.id||'cat';
-    return `<form id="pet-form"><div class="pet-choices" role="group" aria-label="選擇你的寵物">${PETS.map(p=>`<button type="button" class="pet-choice ${id===p.id?'selected':''}" data-pet-choice="${p.id}" aria-pressed="${id===p.id}"><span aria-hidden="true">${p.emoji}</span><small>${p.name}</small></button>`).join('')}</div><label class="field" for="pet-name">給小夥伴取個名字<input id="pet-name" maxlength="16" required value="${esc(state.petNameDraft??state.economy.pet?.name??'') }" placeholder="例如：糯米"></label><div class="form-actions"><button class="button" type="submit">${state.economy.pet?'保存夥伴設定':'把夥伴帶回家'}${icon('check')}</button><span class="notice">更換 emoji 不會重設金幣或家具。</span></div></form>`;
+    return `<form id="pet-form"><div class="pet-choices" role="group" aria-label="選擇你的寵物">${PETS.map(p=>`<button type="button" class="pet-choice ${id===p.id?'selected':''}" data-pet-choice="${p.id}" aria-pressed="${id===p.id}"><span aria-hidden="true">${p.emoji}</span><small>${p.name}</small></button>`).join('')}</div><label class="field" for="pet-name">給小夥伴取個名字<input id="pet-name" maxlength="16" required value="${esc(state.petNameDraft??state.economy.pet?.name??'') }" placeholder="例如：糯米"></label><div class="form-actions"><button class="button" type="submit">把夥伴帶回家${icon('check')}</button><span class="notice">領養後不能更換種類，但之後可以花金幣改名字。</span></div></form>`;
   }
   // The pet grows in three stages: Lv.1-3 small, Lv.4-7 medium, Lv.8 and up large (sizes live in layout.css).
   // The last stage this device showed is remembered per account, so reaching a new one is celebrated once.
@@ -65,19 +60,52 @@ export function createExtras(ctx) {
     const inRoom=owned.filter(f=>state.placedDraft.includes(f.id)).length;
     const cards=owned.map(f=>{
       const here=state.placedDraft.includes(f.id);
-      return `<article class="warehouse-item ${here?'is-in':'is-out'}"><span class="warehouse-emoji" aria-hidden="true">${f.emoji}</span><h3>${f.name}</h3><small>${here?'在房間裡':'在倉庫裡'}</small><button class="button ${here?'secondary':''} small full-width" type="button" data-warehouse="${f.id}">${here?'收起':'放入'}</button></article>`;
+      return `<article class="warehouse-item ${here?'is-in':'is-out'}"><span class="warehouse-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</span><h3>${f.name}</h3><small>${here?'在房間裡':'在倉庫裡'}</small><button class="button ${here?'secondary':''} small full-width" type="button" data-warehouse="${f.id}">${here?'收起':'放入'}</button></article>`;
     }).join('');
     return `<section class="panel warehouse"><div class="section-heading"><h2>我的倉庫</h2><small>房間裡 ${inRoom} 件 · 共 ${owned.length} 件</small></div>${owned.length?`<div class="warehouse-grid">${cards}</div>`:'<p>倉庫還是空的。<a class="text-button" href="#shop">去商店逛逛 →</a></p>'}</section>`;
   }
   function roomTools() {
     if(state.decorating)return `<div class="room-tools"><p>拖曳物品來擺放，也可以點選物品後用方向鍵微調（加按 Shift 移動較遠）。地面的家具只能放在地板上。</p><button class="button small" type="button" id="decorate-save">完成</button><button class="button secondary small" type="button" id="decorate-reset">還原預設位置</button><button class="text-button" type="button" id="decorate-cancel">取消</button></div>${warehouseHTML()}`;
-    return `<div class="room-tools"><button class="button secondary small" type="button" id="decorate-start">佈置房間</button>${state.economy.inventory.length?'':'<p>先到商店帶一件家具回家，就能開始佈置。</p>'}</div>`;
+    return state.economy.inventory.length?'':'<div class="room-tools"><p>先到商店帶一件家具回家，就能開始佈置。</p></div>';
   }
   // The page's security policy forbids inline style attributes, so positions are applied from script.
   function placeItems() {
     const room=$('.pet-room');if(!room)return;
     room.style.setProperty('--floor',FLOOR_RATIO*100+'%');
-    for(const el of $$('.room-item[data-x]')){el.style.left=(el.dataset.x*100)+'%';el.style.top=(el.dataset.y*100)+'%';}
+    for(const el of $$('.room-item[data-x]')){el.style.left=(el.dataset.x*100)+'%';el.style.top=(el.dataset.y*100)+'%';el.style.setProperty('--s',el.dataset.size);}
+    sizeIcons();
+  }
+  // Shop and warehouse pictures keep the pieces' relative sizes (applied from script: the page forbids inline styles).
+  function sizeIcons() {for(const el of $$('[data-icon]'))el.style.fontSize=el.dataset.icon+'px';}
+  // The pet's name is a button: clicking it opens a small form that renames the pet for a few coins.
+  const nameButton=name=>`<button type="button" class="pet-name" id="rename-pet" title="點一下更改名字（${RENAME_COST} 枚金幣）" aria-label="${esc(name)}，點一下更改名字，需要 ${RENAME_COST} 枚金幣">${esc(name)}<span class="pet-name-edit" aria-hidden="true">✎</span></button>`;
+  function bindRename() {
+    const open=$('#rename-pet');if(!open)return;
+    const heading=open.closest('h2');
+    const close=()=>{heading.innerHTML=nameButton(state.economy.pet.name);bindRename();};
+    open.addEventListener('click',()=>{
+      const affordable=canAfford(state.economy,RENAME_COST);
+      heading.innerHTML=`<form class="rename-form" id="rename-form"><input id="rename-input" maxlength="16" required value="${esc(state.economy.pet.name)}" aria-label="新的名字"><button class="button small" type="submit" ${affordable?'':'disabled'}>更改名字 · ${RENAME_COST} 枚</button><button class="text-button" type="button" id="rename-cancel">取消</button>${affordable?'':'<span class="rename-note">金幣不足</span>'}</form>`;
+      const input=$('#rename-input');input.focus();input.select();
+      $('#rename-cancel').addEventListener('click',close);
+      input.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
+      $('#rename-form').addEventListener('submit',event=>{
+        event.preventDefault();
+        const name=input.value.trim();
+        if(!name||name.length>16){toast('名字請填 1 到 16 個字。');return;}
+        if(name===state.economy.pet.name){close();return;}
+        const old=state.economy;
+        try{state.economy=spend(old,{type:'rename',name});}catch(error){toast(error.message);return;}
+        if(!persist()){state.economy=old;return;}
+        // Updated in place so the pet keeps walking where it is.
+        close();
+        const species=PETS.find(item=>item.id===state.economy.pet.id);
+        $('.pet-room')?.setAttribute('aria-label',`${name}的房間`);
+        $('.room-pet')?.setAttribute('aria-label',`${species.name} ${name}，點一下會抖一抖`);
+        refreshCare();
+        toast(`已把名字改成「${name}」。`);
+      });
+    });
   }
   function bindDecorate() {
     const room=$('.pet-room');if(!room||!state.decorating)return;
@@ -109,22 +137,47 @@ export function createExtras(ctx) {
       });
     }
   }
+  // Satisfaction falls with the awake hours since it was last set, so it is always worked out from the clock.
+  const sleepOf=()=>({wake:state.settings.wakeTime,bed:state.settings.currentBedtime});
+  const clockOffset=()=>-new Date().getTimezoneOffset();
+  const moodNow=()=>Math.round(affectionNow(state.economy,Date.now(),sleepOf(),clockOffset()));
+  const moodNote=mood=>{
+    const done=state.economy.careDays.includes(localDate());
+    return `${mood} / 100 · 清醒時會慢慢下降，睡覺時不扣${done?' · 今天的照顧完成 ✓':mood<40?' · 有點想你了':''}`;
+  };
+  // Brings the care area, level and stage up to date without drawing the page again (which would restart the pet's walk).
+  function refreshCare() {
+    const e=state.economy,bar=$('#mood-bar');
+    if(!e.pet||!bar)return;
+    const mood=moodNow(),lv=level(e);
+    bar.value=mood;bar.setAttribute('aria-label',`滿足感 ${mood} / 100`);
+    $('#mood-note').textContent=moodNote(mood);
+    const into=growthPoints(e)%POINTS_PER_LEVEL,levelBar=$('#growth-bar');
+    if(levelBar){levelBar.value=into;levelBar.setAttribute('aria-label',`距離下一級的成長進度 ${into} / ${POINTS_PER_LEVEL}`);}
+    const button=$('#feed-pet');if(button)button.disabled=!canAfford(e,5)||mood>=100;
+    const levelText=$('#level-text');if(levelText)levelText.textContent=`Lv.${lv} · 一起完成 ${e.credits.length} 晚約定`;
+    const wallet=$('.coin-wallet');if(wallet){wallet.textContent=`🪙 ${coinText(e)}`;wallet.setAttribute('aria-label',`目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣`);}
+    const pet=$('.room-pet'),stage=stageOf(lv);
+    if(pet&&Number(pet.dataset.stage)!==stage){
+      pet.dataset.stage=stage;
+      try{localStorage.setItem(`night-harbor-pet-stage-${userId}`,String(stage));}catch{/* Remembering is optional. */}
+    }
+  }
+  setInterval(refreshCare,60000);
   function petHTML() {
-    const e=state.economy,pet=e.pet,p=PETS.find(p=>p.id===pet?.id),pending=pendingRewards(),stage=pet?currentStage(pet):1;
+    const e=state.economy,pet=e.pet,p=PETS.find(p=>p.id===pet?.id),stage=pet?currentStage(pet):1,mood=moodNow();
     const layout=state.decorating?state.layoutDraft:e.layout,placed=state.decorating?state.placedDraft:e.placed;
     const furniture=()=>FURNITURE.filter(f=>placed.includes(f.id)).map(f=>{
-      const spot=itemSpot(f,layout),place=`data-x="${spot.x}" data-y="${spot.y}"`;
+      const spot=itemSpot(f,layout),place=`data-x="${spot.x}" data-y="${spot.y}" data-size="${f.size}"`;
       return state.decorating
         ?`<span class="room-item room-${f.slot} is-decorating" role="button" tabindex="0" data-furniture="${f.id}" ${place} aria-label="${esc(f.name)}，拖曳或用方向鍵移動">${f.emoji}</span>`
         :`<span class="room-item room-${f.slot}" role="img" ${place} aria-label="${esc(f.name)}">${f.emoji}</span>`;
     }).join('');
-    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${esc(pet.name)}</h2><span class="chip gold">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span></div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button><span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress max="100" value="${e.affection}" aria-label="滿足感 ${e.affection} / 100"></progress><small>${e.affection} / 100 · 不會因為失眠扣分</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||e.affection>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}
-    <section class="reward-note"><div><span class="reward-icon">🪙</span></div><div><h2>按時上床，一晚存下 20 枚金幣</h2><p>以前一晚事先保存的就寢目標為準，最晚可晚 15 分鐘。早晨填寫「上床準備睡覺」時間後自動領取；同一晚只領一次。</p><p class="notice">按時上床但睡不著，仍然有獎勵。不扣金幣、不讓寵物受罰。依自行回報並保存至帳號，未連接螢幕時間或穿戴裝置。</p>${pet?`<button class="button secondary small" id="claim-coins" ${pending.total?'':'disabled'}>${pending.total?`領取尚未入帳的 ${pending.total} 枚`:'目前沒有待領金幣'}</button>`:''}<a class="text-button reward-link" href="#shop">去商店替房間添點東西 →</a><a class="text-button reward-link" href="#settings">先設定今晚作息 →</a><a class="text-button reward-link" href="#logs">早晨回報昨晚 →</a></div></section>
-    ${pet?`<section class="panel"><h2>存下的每一個小約定</h2>${e.credits.length?`<div class="table-wrap"><table><thead><tr><th>夜晚日期</th><th>原定目標</th><th>回報上床</th><th>入帳</th></tr></thead><tbody>${[...e.credits].reverse().slice(0,7).map(c=>`<tr><td>${when(c.night)}</td><td>${esc(c.target)}</td><td>${esc(c.bedAt)}</td><td class="gold-text">+20 枚</td></tr>`).join('')}</tbody></table></div>`:'<p>先替今晚設定目標，明早回報後就能存下第一筆金幣。</p>'}<details><summary>更換 emoji 或名字</summary>${adoptionHTML()}</details></section>`:''}`;
+    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${nameButton(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${state.decorating?'':'<button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button>'}</div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}`;
   }
   function shopHTML() {
     const e=state.economy,pet=e.pet;
-    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><small class="shop-slot">擺在${SLOT_LABELS[f.slot]}</small><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div><p class="notice">${UNLIMITED_COINS?'測試中：金幣暫時無限，購買與餵食都不扣金幣。':'金幣來自按時上床的約定，餘額不足時無法購買；已收藏的家具不會重複收費。'}</p><a class="text-button" href="#pet">回到小房間看看 →</a>`}`;
+    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div>`}`;
   }
   const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
@@ -200,9 +253,10 @@ export function createExtras(ctx) {
   }
   // The pet strolls around the floor of its room and shakes a few times when it is touched.
   // Its motion is the point of this page, so it keeps moving even when the system asks for reduced motion.
-  let wanderTimer=0,spot=null,shakeUntil=0;
+  let wanderTimer=0,spot=null,reactUntil=0,petReact=null;
+  const SHAKE_MS=700,HEART_MS=1800,LEAVE_MS=250;
   const rand=(a,b)=>a+Math.random()*(b-a);
-  function stopWander() {clearTimeout(wanderTimer);wanderTimer=0;}
+  function stopWander() {clearTimeout(wanderTimer);wanderTimer=0;petReact=null;}
   function startWander() {
     stopWander();
     const room=$('.pet-room'),pet=room?.querySelector('.room-pet');
@@ -219,37 +273,68 @@ export function createExtras(ctx) {
     const rest=()=>{
       if(!pet.isConnected)return;
       pet.classList.remove('is-walking');
-      wanderTimer=setTimeout(walk,rand(800,2600));
+      wanderTimer=setTimeout(walk,rand(500,3200));
     };
     const walk=()=>{
       if(!pet.isConnected)return;
-      if(document.hidden||Date.now()<shakeUntil){wanderTimer=setTimeout(walk,700);return;}
-      const l=limits(),x=rand(l.minX,l.maxX),y=rand(l.minY,l.maxY),seconds=Math.max(1.4,Math.hypot(x-spot.x,y-spot.y)/55);
+      if(document.hidden||Date.now()<reactUntil){wanderTimer=setTimeout(walk,700);return;}
+      const l=limits();
+      // Sometimes a short step, sometimes a long stroll; sometimes slow, sometimes quick.
+      const reach=Math.random()<0.45?rand(30,110):rand(110,Math.max(160,room.clientWidth*0.7)),angle=rand(0,Math.PI*2);
+      const x=Math.min(l.maxX,Math.max(l.minX,spot.x+Math.cos(angle)*reach)),y=Math.min(l.maxY,Math.max(l.minY,spot.y+Math.sin(angle)*reach*0.5));
+      const distance=Math.hypot(x-spot.x,y-spot.y);
+      // Facing a wall: choose another direction soon.
+      if(distance<12){wanderTimer=setTimeout(walk,300);return;}
+      const speed=rand(22,120),seconds=Math.min(7,Math.max(0.5,distance/speed));
+      pet.style.setProperty('--hop',(0.7-0.45*((speed-22)/98)).toFixed(2)+'s');
       pet.classList.add('is-walking');place(x,y,seconds);
       wanderTimer=setTimeout(rest,seconds*1000);
     };
-    const shake=()=>{
-      if(Date.now()<shakeUntil)return;
-      shakeUntil=Date.now()+900;
+    // Touch, feeding and growing up all react the same way: shake, a heart bubble, the bubble fades, then the pet walks on.
+    const react=()=>{
+      if(!pet.isConnected||Date.now()<reactUntil)return;
+      reactUntil=Date.now()+SHAKE_MS+HEART_MS;
       // Stop where it is, then shake on the spot.
       const r=pet.getBoundingClientRect(),box=room.getBoundingClientRect();
       place(r.left+r.width/2-box.left,box.bottom-r.bottom,0);
       pet.classList.remove('is-walking','is-shaking');void pet.offsetWidth;pet.classList.add('is-shaking');
       clearTimeout(wanderTimer);
-      wanderTimer=setTimeout(()=>{pet.classList.remove('is-shaking');rest();},750);
+      wanderTimer=setTimeout(()=>{
+        pet.classList.remove('is-shaking');
+        const heart=document.createElement('span');
+        heart.className='pet-heart';heart.setAttribute('role','status');
+        heart.innerHTML='<span class="visually-hidden">牠很開心</span><span aria-hidden="true">❤️</span>';
+        pet.append(heart);
+        wanderTimer=setTimeout(()=>{
+          heart.classList.add('is-leaving');
+          wanderTimer=setTimeout(()=>{heart.remove();rest();},LEAVE_MS);
+        },HEART_MS-LEAVE_MS);
+      },SHAKE_MS);
     };
-    pet.addEventListener('click',shake);
-    pet.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse')shake();});
+    petReact=react;
+    pet.addEventListener('click',react);
+    pet.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse')react();});
     wanderTimer=setTimeout(walk,700);
     if(growth){
       const grown=growth;growth=null;
-      setTimeout(()=>{if(pet.isConnected){shake();toast(`${grown.name} 長大了！`);}},600);
+      setTimeout(()=>{if(pet.isConnected){react();toast(`${grown.name} 長大了！`);}},600);
     }
+  }
+  // Feeding updates the page in place: a full re-render would drop the pet at its walking destination.
+  function feedPet() {
+    const old=state.economy,before=level(old);
+    try{state.economy=careForPet(old,{sleep:sleepOf(),offset:clockOffset(),day:localDate(),free:UNLIMITED_COINS});}catch(error){toast(error.message);return;}
+    if(!persist()){state.economy=old;return;}
+    refreshCare();
+    if(petReact)petReact();
+    toast(level(state.economy)>before?`小夥伴升到 Lv.${level(state.economy)}！`:'小夥伴開心地吃了點心。');
   }
   function bind(page) {
     if(page!=='pet'){stopWander();state.decorating=false;}
     if(page==='pet') {
+      if(state.economy.pet&&!state.economy.affectionAt){state.economy={...state.economy,affectionAt:new Date().toISOString()};persist();}
       placeItems();
+      bindRename();
       if(state.decorating){stopWander();bindDecorate();}else startWander();
       $('#decorate-start')?.addEventListener('click',()=>{
         if(!state.economy.inventory.length){toast('先到商店帶一件家具回家，就能開始佈置。');return;}
@@ -270,10 +355,10 @@ export function createExtras(ctx) {
       });
       $$('[data-pet-choice]').forEach(el=>el.addEventListener('click',()=>{state.petNameDraft=$('#pet-name')?.value||'';state.petDraft=el.dataset.petChoice;render();}));
       $('#pet-form')?.addEventListener('submit',e=>{e.preventDefault();state.petNameDraft=$('#pet-name').value;applyPet({type:'adopt',id:state.petDraft||state.economy.pet?.id||'cat',name:state.petNameDraft},'小夥伴準備好陪你一起開始了。');});
-      $('#feed-pet')?.addEventListener('click',()=>applyPet({type:'feed'},'小夥伴開心地吃了點心。'));
-      $('#claim-coins')?.addEventListener('click',()=>{const result=pendingRewards(),old=state.economy;state.economy=result.economy;if(!persist()){state.economy=old;return;}render();toast(result.total?`已入帳 ${result.total} 枚金幣。`:'這些晚上的金幣已經領過了。');});
+      $('#feed-pet')?.addEventListener('click',feedPet);
     }
     if(page==='shop') {
+      sizeIcons();
       $$('[data-shop]').forEach(el=>el.addEventListener('click',()=>applyPet({type:el.dataset.shopAction,id:el.dataset.shop},el.dataset.shopAction==='buy'?'新家具已經帶回家。':'房間布置已更新。')));
     }
     if(page==='reports') {
