@@ -23,3 +23,22 @@
 .pet-name-edit{font-size:14px;color:var(--gold);opacity:.45;transition:opacity .2s}.pet-name:hover .pet-name-edit,.pet-name:focus-visible .pet-name-edit{opacity:1}
 .pet-name:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:6px}
 .rename-form{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;font-size:15px}.rename-form input{width:min(220px,60vw);padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);font-size:18px;font-weight:700}.rename-note{font-size:12px;color:var(--muted)}
+.target-line{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin:6px 0 14px;font-size:13px;color:var(--muted)}.target-line strong{color:var(--gold);font-size:17px}
+.quality-field{min-width:0;margin:16px 0 4px;padding:0;border:0}.quality-field legend{padding:0;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.quality-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.quality-option{position:relative;display:grid;justify-items:center;gap:2px;padding:10px 4px;border:1px solid var(--line);border-radius:14px;background:var(--panel-soft);color:var(--muted);font-size:11px;text-align:center;cursor:pointer}
+.quality-option input{position:absolute;width:1px;height:1px;opacity:0}
+.quality-face{font-size:26px;line-height:1.2;font-family:"Apple Color Emoji","Segoe UI Emoji",sans-serif;filter:grayscale(.7);opacity:.65;transition:opacity .15s,filter .15s}
+.quality-option:hover .quality-face{opacity:1}
+.quality-option:has(input:checked){border-color:var(--lilac);background:#c7b9e714;color:var(--text)}.quality-option:has(input:checked) .quality-face{filter:none;opacity:1}
+.quality-option:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:2px}
+.record-list{display:grid;gap:12px}
+.record-card{padding:16px 18px;border:1px solid var(--line);border-left-width:4px;border-radius:16px;background:var(--panel-soft)}.record-card.is-on-time{border-left-color:var(--green)}.record-card.is-late{border-left-color:var(--gold)}
+.record-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}.record-head strong{font-size:15px}
+.record-chip{padding:3px 10px;border:1px solid var(--line);border-radius:50px;font-size:11px;color:var(--muted)}.is-on-time .record-chip{color:var(--green);border-color:#a8c5b166}.is-late .record-chip{color:var(--gold);border-color:#e5ce9e66}
+.record-coin{margin-left:auto;font-size:12px;color:var(--gold)}
+.record-line{margin:8px 0 2px;font-size:14px}.record-quality,.record-note{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.record-actions{display:flex;gap:16px;margin-top:10px}.record-more{margin-top:14px}
+.record-saved{border-color:#a8c5b155;background:#a8c5b10c}.record-saved h2{font-size:17px}.record-saved-list{display:grid;gap:4px;margin:10px 0 14px;padding-left:20px;font-size:14px}
+.shop-card .button.placed{background:transparent;border:1px solid #a8c5b199;color:var(--green)}.shop-card .button.placed:hover{background:#a8c5b114;transform:none}
+.button.gold-button:hover{background:#efdcae}

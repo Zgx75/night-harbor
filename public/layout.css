@@ -27,11 +27,11 @@
 #main{min-width:0;padding-top:18px}
 .page-heading{flex-wrap:wrap;margin-bottom:20px}
 .page-heading>div{min-width:0}
-.page-heading h1{overflow-wrap:anywhere;font-weight:700}
+.page-heading h1{overflow-wrap:anywhere;font-weight:700;font-size:30px}
 body[data-page=pet] .page-heading{align-items:center;margin-bottom:20px}
-body[data-page=pet] .page-heading h1{font-size:30px}
+
 body[data-page=shop] .page-heading{align-items:center;margin-bottom:20px}
-body[data-page=shop] .page-heading h1{font-size:30px}
+
 body[data-page=pet] .pet-room{min-height:clamp(420px,calc(100dvh - 270px),600px);background:radial-gradient(ellipse at 50% 75%,#66506438,transparent 65%),linear-gradient(155deg,#292b3c,#242532 65%);box-shadow:inset 0 1px 0 #ffffff05}
 body[data-page=pet] .pet-room::before{content:"";position:absolute;width:340px;height:340px;left:50%;bottom:-80px;transform:translateX(-50%);border:1px solid #c7b9e70c;border-radius:50%;box-shadow:0 0 0 45px #c7b9e703,0 0 0 90px #c7b9e702;pointer-events:none}
 body[data-page=pet]{--pet-size:32px}
@@ -74,11 +74,9 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   .topbar .mobile-brand{font-size:20px}
   .topbar-note{display:none}
   body[data-page=pet] .page-heading{gap:12px;margin-bottom:18px}
-  body[data-page=pet] .page-heading h1{font-size:25px}
   body[data-page=pet] .page-heading p{font-size:11px;margin-top:6px}
   body[data-page=pet] .coin-wallet{padding:5px 10px;font-size:13px}
   body[data-page=shop] .page-heading{gap:12px;margin-bottom:18px}
-  body[data-page=shop] .page-heading h1{font-size:25px}
   body[data-page=shop] .page-heading p{font-size:11px;margin-top:6px}
   body[data-page=shop] .coin-wallet{padding:5px 10px;font-size:13px}
   body[data-page=pet] .pet-room{min-height:420px;border-radius:22px}

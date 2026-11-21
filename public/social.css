@@ -43,3 +43,5 @@
 .social-group summary strong{font-weight:500}
 .social-group details[open]>summary{margin-bottom:18px}
 @media(max-width:760px){.social-person{align-items:flex-start;flex-wrap:wrap}.social-person>.social-actions{width:100%}.social-invite code{font-size:16px}.friend-head{flex-wrap:wrap}}
+#social-page .social-inline>.field{margin-bottom:0}
+#social-page .social-inline>.field input,#social-page .social-inline>.field select{height:48px;box-sizing:border-box}#social-page .social-inline>.button{height:48px;min-height:48px}

@@ -95,7 +95,7 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
     return `<section class="panel social-group"><details data-open="group" ${ui.open.group?'open':''}><summary><strong>共養小組</strong>：${g?`${esc(g.name)} · ${g.members.length} / 5 人`:'尚未加入'}</summary>${body}</details></section>`;
   }
   function html() {
-    return `<div id="social-page"><div class="page-heading"><div><h1>一起，慢慢變好</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
+    return `<div id="social-page"><div class="page-heading"><div><h1>我的好友清單</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
   }
   function bind() {
     if(!onPage())return;

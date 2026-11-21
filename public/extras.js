@@ -3,7 +3,7 @@ import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
 import { PETS,FURNITURE,careForPet,RENAME_COST,affectionNow,growth as growthPoints,POINTS_PER_LEVEL,SLEEP_POINTS,CARE_POINTS,CARE_LEVEL,itemSpot,clampSpot,iconSize,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
-  const {state,api,persist,render,toast,esc,icon,localDate,userId}=ctx;
+  const {state,api,persist,render,toast,esc,icon,localDate,userId,confirmAction}=ctx;
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const when=s=>new Date(s+'T12:00:00').toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
   const n=value=>value==null?'—':Number(value).toFixed(1);
@@ -85,15 +85,16 @@ export function createExtras(ctx) {
     const close=()=>{heading.innerHTML=nameButton(state.economy.pet.name);bindRename();};
     open.addEventListener('click',()=>{
       const affordable=canAfford(state.economy,RENAME_COST);
-      heading.innerHTML=`<form class="rename-form" id="rename-form"><input id="rename-input" maxlength="16" required value="${esc(state.economy.pet.name)}" aria-label="新的名字"><button class="button small" type="submit" ${affordable?'':'disabled'}>更改名字 · ${RENAME_COST} 枚</button><button class="text-button" type="button" id="rename-cancel">取消</button>${affordable?'':'<span class="rename-note">金幣不足</span>'}</form>`;
+      heading.innerHTML=`<form class="rename-form" id="rename-form"><input id="rename-input" maxlength="16" required value="${esc(state.economy.pet.name)}" aria-label="新的名字"><button class="button small" type="submit" ${affordable?'':'disabled'}>更改名字 · ${RENAME_COST} 🪙</button><button class="text-button" type="button" id="rename-cancel">取消</button>${affordable?'':'<span class="rename-note">金幣不足</span>'}</form>`;
       const input=$('#rename-input');input.focus();input.select();
       $('#rename-cancel').addEventListener('click',close);
       input.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
-      $('#rename-form').addEventListener('submit',event=>{
+      $('#rename-form').addEventListener('submit',async event=>{
         event.preventDefault();
         const name=input.value.trim();
         if(!name||name.length>16){toast('名字請填 1 到 16 個字。');return;}
         if(name===state.economy.pet.name){close();return;}
+        if(!await confirmAction('確定要改名嗎？',`要把「${state.economy.pet.name}」改成「${name}」，會花費 ${RENAME_COST} 🪙。`,'確定改名','再想想'))return;
         const old=state.economy;
         try{state.economy=spend(old,{type:'rename',name});}catch(error){toast(error.message);return;}
         if(!persist()){state.economy=old;return;}
@@ -173,11 +174,11 @@ export function createExtras(ctx) {
         ?`<span class="room-item room-${f.slot} is-decorating" role="button" tabindex="0" data-furniture="${f.id}" ${place} aria-label="${esc(f.name)}，拖曳或用方向鍵移動">${f.emoji}</span>`
         :`<span class="room-item room-${f.slot}" role="img" ${place} aria-label="${esc(f.name)}">${f.emoji}</span>`;
     }).join('');
-    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${nameButton(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${state.decorating?'':'<button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button>'}</div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}`;
+    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${nameButton(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${state.decorating?'':'<button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button>'}</div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 🪙</button></div>`}`;
   }
   function shopHTML() {
     const e=state.economy,pet=e.pet;
-    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div>`}`;
+    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?(equipped?'placed':'gold-button'):''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div>`}`;
   }
   const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
@@ -327,7 +328,7 @@ export function createExtras(ctx) {
     if(!persist()){state.economy=old;return;}
     refreshCare();
     if(petReact)petReact();
-    toast(level(state.economy)>before?`小夥伴升到 Lv.${level(state.economy)}！`:'小夥伴開心地吃了點心。');
+    if(level(state.economy)>before)toast(`小夥伴升到 Lv.${level(state.economy)}！`);
   }
   function bind(page) {
     if(page!=='pet'){stopWander();state.decorating=false;}

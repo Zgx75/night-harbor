@@ -1,6 +1,6 @@
-import { canNudge, calendarText } from './timing.js';
+import { canNudge } from './timing.js';
 import { cleanRecords } from './records.js';
-import { createEconomy, normaliseEconomy, assessNight } from './progress.js';
+import { createEconomy, normaliseEconomy, assessNight, addDays } from './progress.js';
 import { createExtras } from './extras.js';
 import {planInputKey,cachedPlan,lockedTarget,targetPlan} from './plan-state.js';
 import { openAccount, createProfileSync } from './account.js';
@@ -76,7 +76,7 @@ async function api(path, body) {
 }
 function view() { const name = location.hash.slice(1); return ['pet','shop','reports','logs','settings','social','user','onboarding','factors'].includes(name) ? name : 'pet'; }
 function heading(title, extra='') { return `<div class="page-heading"><div><h1>${title}</h1></div>${extra}</div>`; }
-const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan,userId:account.user.id});
+const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan,userId:account.user.id,confirmAction});
 const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user});
 const me = createMe({state,api,flush:()=>profileSync.flush(),render,toast,esc});
 const onboarding = createOnboarding({state,persist,render,toast,esc,icon,updatePlan});
@@ -86,20 +86,51 @@ window.nightHarborUpdates={
   prepare:()=>profileSync.flush()
 };
 window.dispatchEvent(new Event('night-harbor:update-ready'));
+// How the night felt, from worst to best (a tap picks one; tapping it again clears it).
+const QUALITY = [[1, '😣', '很差'], [2, '😕', '不太好'], [3, '😐', '普通'], [4, '🙂', '不錯'], [5, '😄', '很好']];
+const RECENT_RECORDS = 7;
+const dayLabel = date => `${dateLabel(date)}（${'日一二三四五六'[new Date(date + 'T12:00:00').getDay()]}）`;
+// What a record says about the target for its night: planned time, real time and the difference.
+function timeComparison(record, assessment, target) {
+  if (!record.bedAt) return '上床時間還沒填';
+  if (!target) return `實際 ${record.bedAt}（沒有事先保存的目標）`;
+  const d = assessment.difference;
+  const gap = d == null ? '' : d === 0 ? '準時' : d < 0 ? `提早 ${-d} 分` : d <= 15 ? `晚 ${d} 分，仍在 15 分鐘內` : `晚 ${d} 分`;
+  return `原定 ${target} → 實際 ${record.bedAt}${gap ? `（${gap}）` : ''}`;
+}
+function recordCard(r) {
+  const a = assessNight(r, state.targets), target = state.targets[addDays(r.date, -1)]?.bedtime;
+  const credited = state.economy.credits.some(c => c.night === a.night);
+  const [chip, tone] = a.status === 'on-time' ? ['達標', 'is-on-time'] : a.status === 'late' ? ['晚於目標', 'is-late'] : ['無法比對', 'is-unknown'];
+  const quality = QUALITY.find(q => q[0] === Number(r.sleepQuality));
+  const note = a.status === 'unknown' && r.bedAt ? `<p class="record-note">${esc(a.label)}</p>` : '';
+  return `<article class="record-card ${tone}"><div class="record-head"><strong>${esc(dayLabel(r.date))}</strong><span class="record-chip">${chip}</span>${credited ? '<span class="record-coin">🪙 +20</span>' : ''}</div><p class="record-line">${esc(timeComparison(r, a, target))}</p><p class="record-quality">${quality ? `睡眠品質 ${quality[1]} ${quality[2]}` : '睡眠品質沒有填'}</p>${note}<div class="record-actions"><button class="text-button" type="button" data-edit="${esc(r.date)}">編輯</button><button class="text-button danger" type="button" data-delete="${esc(r.date)}">刪除</button></div></article>`;
+}
+// Shown on the page after saving, so the coins and the pet's reply do not vanish like a toast.
+function savedPanel() {
+  const s = state.logSaved;
+  if (!s) return '';
+  const pet = state.economy.pet, lines = [s.reward, s.petLine].filter(Boolean);
+  return `<section class="panel record-saved" role="status"><h2>已保存 ${esc(dayLabel(s.date))}的紀錄 ✓</h2><ul class="record-saved-list">${lines.map(l => `<li>${esc(l)}</li>`).join('')}<li id="saved-plan-note">${esc(s.planNote)}</li></ul><div class="form-actions">${pet ? `<a class="button small" href="#pet">去看看${esc(pet.name)}${icon('arrow')}</a>` : ''}<button class="text-button" type="button" id="dismiss-saved">知道了</button></div></section>`;
+}
 function logsHTML() {
-  const date=state.selectedDate||localDate(),row=state.records.find(r=>r.date===date)||{};
-  const time=(name,label)=>`<label class="field">${label}<input type="time" name="${name}" value="${esc(row[name]||'')}"></label>`;
-  const scale=(name,label,left,right)=>`<label class="field">${label}<select name="${name}" aria-label="${label}"><option value="">未填寫</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(row[name])===n?'selected':''}>${n}${n===1?' · '+left:n===5?' · '+right:''}</option>`).join('')}</select></label>`;
-  const number=(name,label,max)=>`<label class="field">${label}<input name="${name}" type="number" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(row[name]??'')}" placeholder="未知可留白；沒有則填 0"></label>`;
-  return `${heading('生活與睡眠紀錄')}<section class="panel"><h2>${row.date?'補充':'新增'}一天的紀錄</h2><form id="record-form"><label class="field record-date-field">紀錄日期（起床日）<input type="date" id="record-date" name="date" required max="${localDate()}" value="${esc(date)}"></label><div class="form-section"><h3>☀ 昨晚睡得怎麼樣？</h3><p>只要記上床準備睡覺的時間；獎勵看上床時間，睡不著也不會扣金幣。</p></div><div class="form-grid">${time('bedAt','前一晚上床準備睡覺時間')}${scale('sleepQuality','前一晚睡眠品質','不好','很好')}</div><div class="form-actions"><button class="button" type="submit">保存早晨回報${icon('check')}</button><span class="notice">達成睡前約定，金幣會自動入帳。空白表示未知。</span></div><p class="form-message" id="record-message" role="status"></p></form></section><div class="section-heading"><h2>最近的睡眠紀錄</h2><small>${state.records.length} 天紀錄</small></div>${state.records.length?`<div class="table-wrap"><table><thead><tr><th>起床日</th><th>上床時間</th><th>睡眠品質</th><th>依約／金幣</th><th>操作</th></tr></thead><tbody>${[...state.records].reverse().map(r=>{const a=assessNight(r,state.targets),credited=state.economy.credits.some(c=>c.night===a.night);return `<tr><td>${esc(dateLabel(r.date))}</td><td>${esc(r.bedAt||'—')}</td><td>${r.sleepQuality==null?'—':r.sleepQuality+'/5'}</td><td>${credited?'🪙 已入帳':a.status==='on-time'?'依約上床':a.status==='late'?'較晚收尾':'未知'}</td><td><button class="text-button" data-edit="${esc(r.date)}">編輯</button> &nbsp; <button class="text-button danger" data-delete="${esc(r.date)}">刪除</button></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty"><span class="empty-icon">☀</span><p>先設定今晚的目標，明早就能回報第一晚。</p><a href="#settings" class="button secondary small">到設定填寫作息</a></div>'}<p class="notice">自行回報的時間不是系統偵測。刪除紀錄不會重設已發放金幣；同一晚無法重新領取。</p>`;
+  const date = state.selectedDate || localDate(), row = state.records.find(r => r.date === date) || {};
+  const night = addDays(date, -1), target = state.targets[night];
+  const recent = [...state.records].reverse(), shown = state.showAllRecords ? recent : recent.slice(0, RECENT_RECORDS);
+  const targetLine = target
+    ? `<div class="target-line"><span>昨晚的目標：<strong>${esc(target.bedtime)}</strong></span><button type="button" class="button secondary small" id="fill-target" data-target="${esc(target.bedtime)}">準時上床</button></div>`
+    : '';
+  const qualityField = `<fieldset class="quality-field"><legend>前一晚睡眠品質（再點一次可以取消）</legend><div class="quality-row" role="radiogroup">${QUALITY.map(([n, face, text]) => `<label class="quality-option"><input type="radio" name="sleepQuality" value="${n}" ${Number(row.sleepQuality) === n ? 'checked' : ''}><span class="quality-face" aria-hidden="true">${face}</span><span>${text}</span></label>`).join('')}</div></fieldset>`;
+  const more = recent.length > RECENT_RECORDS ? `<button class="button secondary small record-more" type="button" id="toggle-records">${state.showAllRecords ? `只看最近 ${RECENT_RECORDS} 筆` : `顯示更早的紀錄（還有 ${recent.length - RECENT_RECORDS} 筆）`}</button>` : '';
+  return `${heading('睡眠紀錄')}${savedPanel()}<section class="panel"><h2>${row.date ? '補充' : '新增'}一天的紀錄</h2><form id="record-form"><label class="field record-date-field"><input type="date" id="record-date" name="date" required max="${localDate()}" value="${esc(date)}" aria-label="哪一天早上起床"></label><div class="form-section"><h3>☀ 昨晚睡得怎麼樣？</h3></div>${targetLine}<label class="field">前一晚上床準備睡覺時間<input type="time" name="bedAt" value="${esc(row.bedAt || '')}"></label>${qualityField}<div class="form-actions"><button class="button" type="submit">保存早晨回報${icon('check')}</button></div><p class="form-message" id="record-message" role="status"></p></form></section><div class="section-heading"><h2>最近的睡眠紀錄</h2><small>${state.records.length} 天紀錄</small></div>${state.records.length ? `<div class="record-list">${shown.map(recordCard).join('')}</div>${more}` : '<div class="empty"><span class="empty-icon">☀</span><p>先設定今晚的目標，明早就能回報第一晚。</p><a href="#settings" class="button secondary small">到設定填寫作息</a></div>'}<p class="notice">自行回報的時間不是系統偵測。刪除紀錄不會重設已發放金幣；同一晚無法重新領取。</p>`;
 }
 
 function planSection() {
   const s=state.settings,p=state.plan,t=p?.points?.[0],ai=p?.source==='gemini';
-  return `<div class="section-heading"><h2>作息設定</h2><small>AI 每日作息目標</small></div><section class="panel"><h2>先設定最終方向</h2><p>你設定想靠近的時間，AI 根據每天的紀錄，決定今晚做得到的一步。</p><form id="plan-form"><div class="form-grid"><label class="field">目前通常幾點上床<input type="time" name="currentBedtime" value="${esc(s.currentBedtime)}"><span class="field-hint">初次使用的起點；近期滿三筆上床紀錄後，改由紀錄估計。</span></label><label class="field">最終希望幾點上床<input type="time" name="targetBedtime" required value="${esc(s.targetBedtime)}"><span class="field-hint">這是長期方向，不是今晚必須達成的時間。</span></label><label class="field">通常需要幾點起床<input type="time" name="wakeTime" required value="${esc(s.wakeTime)}"></label></div><div class="form-actions"><button class="button" type="submit" ${state.planBusy?'disabled':''}>${state.planBusy?'AI 正在分析紀錄…':'儲存方向並產生今晚目標'}${icon('sparkles')}</button><span class="notice">會將近期作息與生活紀錄交由 Gemini 分析。</span></div><p class="form-message" id="plan-message" role="status"></p></form></section>${state.planError?'<div class="error-box" role="alert">'+esc(state.planError)+(t?' 目前沿用本晚已保存的目標；尚未依最新資料更新。':' 尚未產生今晚的 AI 目標。')+'</div>':''}${t?`<div class="plan-summary"><div class="metric"><small>最終希望上床</small><strong>${esc(s.targetBedtime)}</strong></div><div class="metric"><small>${ai?'今晚 AI 建議上床':'今晚原先保存的目標'}</small><strong>${esc(t.bedtime)}</strong></div><div class="metric"><small>今晚開始收心</small><strong>${esc(t.windDown)}</strong></div></div><section class="panel"><div class="section-heading"><h2>今晚，先做到這一步</h2><span class="chip">${p.locked?'本晚約定已固定':ai?'AI 個人化分析':'先前保存的安排'}</span></div><p class="answer-text">${esc(p.message)}</p>${p.observations?.length?'<ul>'+p.observations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${p.nextStep?'<p><strong>今天先試一件事：</strong>'+esc(p.nextStep)+'</p>':''}<p class="notice">參考起點：${esc(p.baseline||'—')} · ${esc(p.baselineSource||'這晚原先保存的約定')}</p><div class="timeline"><div class="timeline-item"><span class="time">${esc(t.windDown)}</span><span class="label">開始收心</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.dimLights)}</span><span class="label">調暗燈光</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.bedtime)}</span><span class="label">上床準備睡覺</span></div></div>${p.shortOpportunity?'<p class="notice">目前過渡期的上床到起床區間仍少於七小時，可檢視是否能留出更多睡眠空間；這個區間不代表真正睡著的時數。</p>':''}<p class="notice">${esc(p.note||'只依這晚事先保存的目標核對獎勵。')} 早晨填寫紀錄後，AI 會再分析當晚的目標；時間已到的約定不事後更改。</p><div class="form-actions"><button class="button secondary small" id="export-calendar">${icon('download')}下載今晚行事曆提醒</button>${(p.sources||[]).map(x=>'<a class="source-link" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.publisher)+' ↗</a>').join('')}</div></section>`:'<div class="empty"><span class="empty-icon">⌁</span><p>'+esc(state.planBusy?'AI 正在根據你的資料安排今晚…':p?.message||'填入通常上床時間與最終目標，就能開始。')+'</p></div>'}`;
+  return `<div class="section-heading"><h2>作息設定</h2><small>AI 每日作息目標</small></div><section class="panel"><h2>先設定最終方向</h2><p>你設定想靠近的時間，AI 根據每天的紀錄，決定今晚做得到的一步。</p><form id="plan-form"><div class="form-grid"><label class="field">目前通常幾點上床<input type="time" name="currentBedtime" value="${esc(s.currentBedtime)}"><span class="field-hint">初次使用的起點；近期滿三筆上床紀錄後，改由紀錄估計。</span></label><label class="field">最終希望幾點上床<input type="time" name="targetBedtime" required value="${esc(s.targetBedtime)}"><span class="field-hint">這是長期方向，不是今晚必須達成的時間。</span></label><label class="field">通常需要幾點起床<input type="time" name="wakeTime" required value="${esc(s.wakeTime)}"></label></div><div class="form-actions"><button class="button" type="submit" ${state.planBusy?'disabled':''}>${state.planBusy?'AI 正在分析紀錄…':'儲存方向並產生今晚目標'}${icon('sparkles')}</button><span class="notice">會將近期作息與生活紀錄交由 Gemini 分析。</span></div><p class="form-message" id="plan-message" role="status"></p></form></section>${state.planError?'<div class="error-box" role="alert">'+esc(state.planError)+(t?' 目前沿用本晚已保存的目標；尚未依最新資料更新。':' 尚未產生今晚的 AI 目標。')+'</div>':''}${t?`<div class="plan-summary"><div class="metric"><small>最終希望上床</small><strong>${esc(s.targetBedtime)}</strong></div><div class="metric"><small>${ai?'今晚 AI 建議上床':'今晚原先保存的目標'}</small><strong>${esc(t.bedtime)}</strong></div><div class="metric"><small>今晚開始收心</small><strong>${esc(t.windDown)}</strong></div></div><section class="panel"><div class="section-heading"><h2>今晚，先做到這一步</h2><span class="chip">${p.locked?'本晚約定已固定':ai?'AI 個人化分析':'先前保存的安排'}</span></div><p class="answer-text">${esc(p.message)}</p>${p.observations?.length?'<ul>'+p.observations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${p.nextStep?'<p><strong>今天先試一件事：</strong>'+esc(p.nextStep)+'</p>':''}<p class="notice">參考起點：${esc(p.baseline||'—')} · ${esc(p.baselineSource||'這晚原先保存的約定')}</p><div class="timeline"><div class="timeline-item"><span class="time">${esc(t.windDown)}</span><span class="label">開始收心</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.dimLights)}</span><span class="label">調暗燈光</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.bedtime)}</span><span class="label">上床準備睡覺</span></div></div>${p.shortOpportunity?'<p class="notice">目前過渡期的上床到起床區間仍少於七小時，可檢視是否能留出更多睡眠空間；這個區間不代表真正睡著的時數。</p>':''}<p class="notice">${esc(p.note||'只依這晚事先保存的目標核對獎勵。')} 早晨填寫紀錄後，AI 會再分析當晚的目標；時間已到的約定不事後更改。</p></section>`:'<div class="empty"><span class="empty-icon">⌁</span><p>'+esc(state.planBusy?'AI 正在根據你的資料安排今晚…':p?.message||'填入通常上床時間與最終目標，就能開始。')+'</p></div>'}`;
 }
 function settingsHTML() {
-  return `${heading('偏好設定')}<div class="settings-stack">${planSection()}<section class="panel"><h2>溫和介入提醒</h2><p>到了作息設定中的「開始收心」時間，如果這個頁面仍在開啟且近期有操作，就會主動問候一次。</p><label class="check-row"><input type="checkbox" id="reminders-toggle" ${state.settings.reminders?'checked':''}>開啟頁面內收心提醒</label><div class="form-actions"><button class="button secondary small" id="preview-nudge">體驗一次關心提醒</button><button class="text-button" id="enable-notifications">允許瀏覽器通知</button></div><p class="notice">手機網頁無法偵測其他 App 的使用情況，頁面關閉或被系統暫停後也不保證提醒。需要背景提醒時，可在上方作息設定下載並匯入行事曆；行事曆通知仍依裝置設定。</p></section>${onboarding.settingsHTML()}</div>`;
+  return `${heading('偏好設定')}<div class="settings-stack">${planSection()}<section class="panel"><h2>溫和介入提醒</h2><p>到了作息設定中的「開始收心」時間，如果這個頁面仍在開啟且近期有操作，就會主動問候一次。</p><label class="check-row"><input type="checkbox" id="reminders-toggle" ${state.settings.reminders?'checked':''}>開啟頁面內收心提醒</label><div class="form-actions"><button class="button secondary small" id="preview-nudge">體驗一次關心提醒</button><button class="text-button" id="enable-notifications">允許瀏覽器通知</button></div><p class="notice">手機網頁無法偵測其他 App 的使用情況，頁面關閉或被系統暫停後也不保證提醒。</p></section>${onboarding.settingsHTML()}</div>`;
 }
 function userHTML() {
   const u=account.user;
@@ -109,6 +140,7 @@ function render() {
   // A triggered follow-up must be answered first; every other page returns to it.
   if(factorSurvey.required()&&view()!=='factors'){location.replace('#factors');return;}
   const page = view();
+  if(page!=='logs')state.logSaved=null;
   document.body.dataset.page = page;
   const accountButton=$('#account-button');
   if(accountButton){if(page==='user')accountButton.setAttribute('aria-current','page');else accountButton.removeAttribute('aria-current');}
@@ -149,19 +181,15 @@ async function updatePlan({force=false}={}) {
   } catch(e) {if(run===state.planRun){state.plan=previous;state.planError=e.message;}}
   finally {if(run===state.planRun)state.planBusy=false;}
 }
-async function confirmAction(title,description) {
+async function confirmAction(title,description,confirmLabel='確定清除',cancelLabel='先保留') {
   const dialog=$('#confirm-dialog'); $('#dialog-title').textContent=title; $('#dialog-description').textContent=description;
+  $('button[value=confirm]',dialog).textContent=confirmLabel; $('button[value=cancel]',dialog).textContent=cancelLabel;
   dialog.returnValue=''; dialog.showModal();
   return await new Promise(resolve=>dialog.addEventListener('close',()=>resolve(dialog.returnValue==='confirm'),{once:true}));
 }
 function download(name,content,type) {
   const url=URL.createObjectURL(new Blob([content],{type})), link=document.createElement('a');
   link.href=url; link.download=name; document.body.append(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-function exportCalendar() {
-  if(!state.plan?.points?.length)return;
-  download('夜泊-今晚作息提醒.ics',calendarText(state.plan.points),'text/calendar;charset=utf-8');
-  toast('已下載。匯入行事曆後，請確認通知已開啟。');
 }
 function bind(page) {
   if(page==='user') {
@@ -176,10 +204,24 @@ function bind(page) {
   }
   if(page==='logs') {
     listen('#record-date','change',e=>{state.selectedDate=e.target.value;render();});
+    // One tap fills the bedtime that was planned for last night.
+    listen('#fill-target','click',e=>{$('input[name=bedAt]').value=e.currentTarget.dataset.target;});
+    // Quality buttons are radios; tapping the chosen one again clears it.
+    const faces=$$('input[name=sleepQuality]');
+    faces.forEach(radio=>{
+      radio.dataset.was=radio.checked?'1':'';
+      radio.addEventListener('click',()=>{
+        if(radio.dataset.was==='1'){radio.checked=false;radio.dataset.was='';}
+        else{faces.forEach(other=>other.dataset.was='');radio.dataset.was='1';}
+      });
+    });
+    listen('#toggle-records','click',()=>{state.showAllRecords=!state.showAllRecords;render();});
+    listen('#dismiss-saved','click',()=>{state.logSaved=null;render();});
     listen('#record-form','submit',async e=>{
       e.preventDefault(); const button=$('button[type=submit]',e.target);button.disabled=true;
       try {
         const form=Object.fromEntries(new FormData(e.target));
+        if(form.sleepQuality==null)form.sleepQuality='';
         // Older days may hold fields the form no longer shows; keep them instead of erasing them.
         const row={...(state.records.find(r=>r.date===form.date)||{}),...form};
         if(row.date>localDate())throw new Error('未來的實際紀錄請等當天再填寫。');
@@ -195,11 +237,21 @@ function bind(page) {
           if(kind==='reminder'&&pendingSurvey(state.factorSurveys)?.triggeredOn===row.date)kind='survey';
           state.petFeedback=nextFeedback(state.petFeedback,row.date,kind);
           if(kind==='survey')location.hash='factors';if(state.petFeedback?.date===row.date)petLine=`${state.economy.pet.name}：「${lineText(state.petFeedback.id)}」`;}
-        const saved=persist();await updatePlan();render();
-        if(saved)toast([reward,petLine].filter(Boolean).join(' ')||(state.planError?'紀錄已保存；恢復後端連線後可更新 AI 目標。':'早晨回報已保存，今晚的作息目標也已更新。'));checkNudge();
+        const saved=persist();
+        const a=assessNight(saved_row,state.targets);
+        const coinNote=reward||(a.status==='on-time'?'這晚的金幣先前已經入帳。':a.status==='late'?'這晚比目標晚超過 15 分鐘，沒有金幣，明天再試試。':saved_row.bedAt?`這晚沒有金幣：${a.label}`:'');
+        const note={date:row.date,reward:coinNote,petLine,planNote:'正在更新今晚的作息目標…'};
+        state.logSaved=note;render();
+        // A follow-up survey takes over the page, so say it in a toast too.
+        if(saved&&location.hash==='#factors')toast([reward,petLine].filter(Boolean).join(' ')||'紀錄已保存。');
+        else window.scrollTo({top:0});
+        await updatePlan();
+        note.planNote=state.planError?`今晚的 AI 作息目標暫時無法更新：${state.planError}`:'今晚的作息目標也已更新。';
+        const planLine=$('#saved-plan-note');if(state.logSaved===note&&planLine)planLine.textContent=note.planNote;
+        checkNudge();
       } catch(err) { $('#record-message').textContent=err.message;button.disabled=false; }
     });
-    $$('[data-edit]').forEach(el=>el.addEventListener('click',()=>{state.selectedDate=el.dataset.edit;render();$('#record-date').focus();}));
+    $$('[data-edit]').forEach(el=>el.addEventListener('click',()=>{state.selectedDate=el.dataset.edit;render();$('#record-form').scrollIntoView({block:'center'});$('#record-date').focus({preventScroll:true});}));
     $$('[data-delete]').forEach(el=>el.addEventListener('click',async()=>{
       if(!await confirmAction('刪除這天的紀錄？','這筆生活紀錄會從目前帳號移除並同步到其他裝置。'))return;
       state.records=state.records.filter(r=>r.date!==el.dataset.delete);persist();await updatePlan().catch(()=>{});render();toast('已刪除這天的紀錄。');
@@ -212,13 +264,12 @@ function bind(page) {
       try { state.settings=next;persist();const pending=updatePlan({force:true});render();await pending;render();toast(state.planError?'最終方向已保存，AI 分析可稍後重試。':'今晚的作息目標已更新。');checkNudge(); }
       catch(err){$('#plan-message').textContent=err.message;button.disabled=false;}
     });
-    listen('#export-calendar','click',exportCalendar);
   }
   if(page==='settings') {
     listen('#reminders-toggle','change',e=>{state.settings.reminders=e.target.checked;persist();if(e.target.checked&&!state.plan?.points?.length)toast('先在上方作息設定填入通常就寢時間，提醒就會依此安排。');checkNudge();});
     listen('#preview-nudge','click',()=>showNudge(true));
     listen('#enable-notifications','click',async()=>{
-      if(!('Notification'in window)){toast('此瀏覽器不支援通知，仍可使用頁面內提醒或行事曆。');return;}
+      if(!('Notification'in window)){toast('此瀏覽器不支援通知，仍可使用頁面內提醒。');return;}
       try { const permission=await Notification.requestPermission();toast(permission==='granted'?'已允許通知；頁面開啟時可接收收心提醒。':'仍可使用頁面內提醒，不影響其他功能。'); } catch {toast('目前無法開啟通知，仍可使用頁面內提醒。');}
     });
   }
