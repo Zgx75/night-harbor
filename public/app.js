@@ -74,9 +74,10 @@ async function api(path, body) {
   if (!response.ok) throw Object.assign(new Error(data.error || '剛剛有個小問題，請重試。'), { code:data.code });
   return data;
 }
-function view() { const name = location.hash.slice(1); return ['pet','shop','reports','logs','settings','social','user','onboarding','factors'].includes(name) ? name : 'pet'; }
+function view() { const name = location.hash.slice(1); return ['pet','shop','group','groupshop','reports','logs','settings','social','user','onboarding','factors'].includes(name) ? name : 'pet'; }
 function heading(title, extra='') { return `<div class="page-heading"><div><h1>${title}</h1></div>${extra}</div>`; }
-const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan,userId:account.user.id,confirmAction});
+const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan,userId:account.user.id,confirmAction,
+  groupRoom:{data:()=>social.group(),ready:()=>social.ready(),act:body=>social.groupPet(body)}});
 // A dot on the friends tab while an invitation is waiting for an answer.
 const socialLink=$('.nav-link[data-nav=social]'),socialLabel=socialLink?.getAttribute('aria-label')||'';
 function setSocialBadge(count) {
@@ -84,7 +85,13 @@ function setSocialBadge(count) {
   socialLink.classList.toggle('has-badge',count>0);
   socialLink.setAttribute('aria-label',count>0?`${socialLabel}（有 ${count} 則新通知）`:socialLabel);
 }
-const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user,confirmAction,onBadge:setSocialBadge});
+const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user,confirmAction,onBadge:setSocialBadge,
+  // The group's room pages follow its data: my own room only needs its entry button, the group pages redraw when it changes.
+  onGroupChange:changed=>{
+    const page=view();
+    if(page==='pet')extras.syncGroupEntry();
+    else if((page==='group'||page==='groupshop')&&changed&&!state.decorating&&!document.activeElement?.matches('input,textarea,select'))render();
+  }});
 const me = createMe({state,api,flush:()=>profileSync.flush(),render,toast,esc});
 const onboarding = createOnboarding({state,persist,render,toast,esc,icon,updatePlan});
 const factorSurvey = createFactorSurvey({state,persist,render,toast,esc,icon,localDate});
@@ -148,14 +155,16 @@ function render() {
   if(factorSurvey.required()&&view()!=='factors'){location.replace('#factors');return;}
   const page = view();
   if(page!=='logs')state.logSaved=null;
-  document.body.dataset.page = page;
+  // The group's room and shop look like my own, so they share the same page styles and navigation highlight.
+  const styled={group:'pet',groupshop:'shop'}[page]||page,navPage={shop:'pet',group:'pet',groupshop:'pet'}[page]||page;
+  document.body.dataset.page = styled;
   const accountButton=$('#account-button');
   if(accountButton){if(page==='user')accountButton.setAttribute('aria-current','page');else accountButton.removeAttribute('aria-current');}
   // The home page (夥伴) has nowhere to go back to; every other page offers a way back.
   const backButton=$('#back-button');
   if(backButton)backButton.hidden=page==='pet';
-  $$('.nav-link').forEach(a => { a.classList.toggle('active',a.dataset.nav===page); if(a.dataset.nav===page) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
-  const html = ({ pet:extras.petHTML, shop:extras.shopHTML, reports:extras.reportsHTML, logs:logsHTML, settings:settingsHTML, social:social.html, user:userHTML, onboarding:onboarding.html, factors:factorSurvey.html })[page]();
+  $$('.nav-link').forEach(a => { a.classList.toggle('active',a.dataset.nav===navPage); if(a.dataset.nav===navPage) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  const html = ({ pet:()=>extras.petHTML('me'), shop:()=>extras.shopHTML('me'), group:()=>extras.petHTML('group'), groupshop:()=>extras.shopHTML('group'), reports:extras.reportsHTML, logs:logsHTML, settings:settingsHTML, social:social.html, user:userHTML, onboarding:onboarding.html, factors:factorSurvey.html })[page]();
   const pageHTML=page==='pet'?onboarding.promptHTML()+html:html;
   $('#main').innerHTML = pageHTML;
   bind(page);
@@ -302,7 +311,7 @@ function trackStep() {
   stepIndex+=1;history.replaceState({appStep:stepIndex},'');
 }
 $('#back-button').addEventListener('click',()=>{if(stepIndex>0)history.back();else location.hash='#pet';});
-window.addEventListener('hashchange',()=>{trackStep();render();if(view()==='social')social.refresh();if(view()==='user')me.refresh();window.scrollTo({top:0});});
+window.addEventListener('hashchange',()=>{trackStep();render();if(['social','group','groupshop'].includes(view()))social.refresh();if(view()==='user')me.refresh();window.scrollTo({top:0});});
 for(const type of ['pointerdown','keydown','touchstart'])document.addEventListener(type,()=>state.lastActivity=Date.now(),{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){state.lastActivity=Date.now();checkNudge();}});
 setInterval(()=>{if(state.lastPlanDate!==nightDate()){updatePlan().then(()=>{if((view()==='settings'||view()==='reports')&&!document.activeElement?.matches('input,textarea,select'))render();checkNudge();}).catch(()=>{});}else checkNudge();},30000);
@@ -314,7 +323,7 @@ social.refresh({quiet:view()!=='social'});
 if(view()==='user')me.refresh();
 let socialTick=0;
 // On the friends page every 30 seconds; elsewhere every 90 seconds, just to keep the tab's dot up to date.
-setInterval(()=>{if(document.visibilityState!=='visible')return;socialTick++;if(view()==='social'||socialTick%3===0)social.refresh({quiet:true});},30000);
+setInterval(()=>{if(document.visibilityState!=='visible')return;socialTick++;if(['social','group','groupshop'].includes(view())||socialTick%3===0)social.refresh({quiet:true});},30000);
 Promise.allSettled([api('/api/health'),api('/api/knowledge'),updatePlan()]).then(results=>{
   if(results[0].status==='fulfilled')state.health=results[0].value;
   if(results[1].status==='fulfilled')state.knowledge=results[1].value.sources;

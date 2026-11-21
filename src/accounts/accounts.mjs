@@ -64,7 +64,7 @@ export function cleanProfile(value) {
   return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan, onboarding, petFeedback, factorSurveys, weeklyRecap, monthlyRecap };
 }
 
-export function createAccountStore({ filename, now = Date.now } = {}) {
+export function createAccountStore({ filename, now = Date.now, unlimitedGroupCoins = false } = {}) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   db.exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
@@ -82,7 +82,7 @@ export function createAccountStore({ filename, now = Date.now } = {}) {
     );
     CREATE INDEX IF NOT EXISTS session_expiry ON account_sessions(expires_at);`);
   let hashing = 0;
-  const social = createSocialStore({ db, now });
+  const social = createSocialStore({ db, now, unlimitedGroupCoins });
   async function hash(password, salt) {
     if (hashing >= 2) throw new AppError(503, 'AUTH_BUSY', '目前登入人數較多，請稍後再試。');
     hashing++;

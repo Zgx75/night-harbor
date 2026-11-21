@@ -37,8 +37,12 @@ async function readJson(req, maxBytes = 48000) {
   return value;
 }
 
-export function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', advise, plan, now = Date.now, dbPath = process.env.SQLITE_PATH || path.join(ROOT, 'data', 'night-harbor.sqlite') } = {}) {
-  const accounts = createAccountStore({ filename: dbPath, now });
+// TEMP, for trying out the group's shop: the group's coins are unlimited, so buying, feeding and renaming cost nothing.
+// Set this to false to bring the real group coins back (they are still earned and recorded as usual).
+// The same kind of switch for a personal pet is UNLIMITED_COINS in public/extras.js.
+const UNLIMITED_GROUP_COINS = true;
+export function createApp({ unlimitedGroupCoins = UNLIMITED_GROUP_COINS, apiKey = process.env.GEMINI_API_KEY, model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', advise, plan, now = Date.now, dbPath = process.env.SQLITE_PATH || path.join(ROOT, 'data', 'night-harbor.sqlite') } = {}) {
+  const accounts = createAccountStore({ filename: dbPath, now, unlimitedGroupCoins });
   const generateAdvice = advise || createAdviceGenerator({ apiKey, model });
   const generatePlan = plan || createPlanGenerator({apiKey,model,now});
   const limits = new Map();

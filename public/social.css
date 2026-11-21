@@ -45,7 +45,10 @@
 .friend-who .social-status{display:flex;align-items:center;gap:7px;margin-top:4px;color:var(--muted)}
 .friend-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#6b6f7f}.friend-dot.awake{background:var(--gold)}.friend-dot.sleeping{background:var(--lilac)}.friend-dot.up{background:var(--green)}
 .friend-scores{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.score-chip{padding:4px 11px;border:1px solid var(--line);border-radius:50px;font-size:12px;color:var(--text)}.score-chip.good{color:var(--green);border-color:#a8c5b166}.score-chip.quiet{color:var(--faint)}
+.score-chip{padding:4px 11px;border:1px solid var(--line);border-radius:50px;font-size:12px;color:var(--text)}.score-chip.good{color:var(--green);border-color:#a8c5b166}
 .social-add{padding:20px 24px}.social-account{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:13px;color:var(--muted)}.social-account code{color:var(--gold);font-size:15px}
 .friend-card{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;padding:14px 0}
-.friend-card .friend-head{flex:1 1 240px;min-width:0}.friend-card .friend-scores{margin-top:0;flex:0 1 auto}.friend-card>.button{margin-left:auto}
+.friend-card .friend-head{flex:1 1 240px;min-width:0}.friend-card .friend-scores{margin-top:0;flex:0 1 auto}.friend-card>.friend-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-left:auto}
+.invite-note{display:block;margin-top:6px;color:var(--muted)}
+.group-invite{margin:18px 0 6px;padding-top:16px;border-top:1px solid var(--line)}.group-invite h3{margin-bottom:10px}
+.section-heading .social-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

@@ -29,7 +29,7 @@ export const FURNITURE = [
   {id:'carp',name:'小鯉魚旗',emoji:'🎏',cost:90,slot:'ceiling',x:.66,y:.1,size:58},
   {id:'radio',name:'睡前小收音機',emoji:'📻',cost:80,slot:'side',x:.58,y:.7,size:38},
   {id:'basket',name:'毛毯小籃子',emoji:'🧺',cost:45,slot:'side',x:.06,y:.9,size:42},
-  {id:'piano',name:'迷你小鋼琴',emoji:'🎹',cost:150,slot:'side',x:.88,y:.64,size:66}
+  {id:'piano',name:'迷你小鋼琴',emoji:'🎹',cost:150,slot:'side',x:.88,y:.64,size:52}
 ];
 // The floor takes the lower part of the room. Pieces that stand on the floor can never be moved above it;
 // wall and ceiling pieces can go anywhere in the room. Positions are fractions of the room (0-1, from the top left).

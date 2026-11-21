@@ -3,7 +3,7 @@ import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
 import { PETS,FURNITURE,careForPet,RENAME_COST,affectionNow,growth as growthPoints,POINTS_PER_LEVEL,SLEEP_POINTS,CARE_POINTS,CARE_LEVEL,itemSpot,clampSpot,iconSize,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
-  const {state,api,persist,render,toast,esc,icon,localDate,userId,confirmAction}=ctx;
+  const {state,api,persist,render,toast,esc,icon,localDate,userId,confirmAction,groupRoom}=ctx;
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const when=s=>new Date(s+'T12:00:00').toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
   const n=value=>value==null?'—':Number(value).toFixed(1);
@@ -19,6 +19,21 @@ export function createExtras(ctx) {
     const next=petTransaction({...economy,bonusCredits:[...economy.bonusCredits,{id:'test-funds',type:'group',amount:1000000}]},event);
     return {...next,bonusCredits:economy.bonusCredits,transactions:economy.transactions};
   }
+  // The room pages show either my own pet or the pet I raise with my group; these helpers pick the right data.
+  // The group's coins are the team's real balance from the server (the test switch above only affects my own).
+  let roomKind='me';
+  const inGroup=()=>roomKind==='group';
+  const groupData=()=>groupRoom?.data()||null;
+  const roomEconomy=()=>inGroup()?(groupData()?.economy||null):state.economy;
+  const roomBalance=()=>inGroup()?(groupData()?.balance??0):balance(state.economy);
+  const roomUnlimited=()=>inGroup()?Boolean(groupData()?.unlimited):UNLIMITED_COINS;
+  const roomCoinText=()=>inGroup()?(groupData()?.unlimited?'∞':String(roomBalance())):coinText(state.economy);
+  const roomCoinWords=()=>roomUnlimited()?'無限':String(roomBalance());
+  const roomAfford=cost=>inGroup()?(Boolean(groupData()?.unlimited)||roomBalance()>=cost):canAfford(state.economy,cost);
+  const roomDay=()=>inGroup()?new Date(Date.now()+8*3600000).toISOString().slice(0,10):localDate();
+  const stageKey=()=>inGroup()?`night-harbor-pet-stage-group-${groupData()?.id}`:`night-harbor-pet-stage-${userId}`;
+  const shopHash=()=>inGroup()?'#groupshop':'#shop';
+  const canRename=()=>!inGroup()||groupData()?.ownerId===userId;
   function rememberTarget() {
     if(state.plan?.source!=='gemini')return;
     const next=snapshotTargets(state.targets,(state.plan?.points||[]).slice(0,1).map(p=>({...p,source:'gemini',reason:state.plan.message})));
@@ -45,8 +60,8 @@ export function createExtras(ctx) {
   const stageOf=lv=>lv>=8?3:lv>=4?2:1;
   let growth=null;
   function currentStage(pet) {
-    const stage=stageOf(level(state.economy));
-    const key=`night-harbor-pet-stage-${userId}`;
+    const stage=stageOf(level(roomEconomy()));
+    const key=stageKey();
     let seen=0;
     try{seen=Number(localStorage.getItem(key))||0;}catch{/* Remembering is optional. */}
     if(seen&&stage>seen)growth={name:pet.name};
@@ -56,17 +71,17 @@ export function createExtras(ctx) {
   // Placing furniture: drag a piece, or focus it and use the arrow keys. Nothing is saved until "完成".
   // "我的倉庫": every piece the player owns. Pieces in the room show "收起"; the others are faded and show "放入".
   function warehouseHTML() {
-    const owned=FURNITURE.filter(f=>state.economy.inventory.includes(f.id));
+    const owned=FURNITURE.filter(f=>roomEconomy().inventory.includes(f.id));
     const inRoom=owned.filter(f=>state.placedDraft.includes(f.id)).length;
     const cards=owned.map(f=>{
       const here=state.placedDraft.includes(f.id);
       return `<article class="warehouse-item ${here?'is-in':'is-out'}"><span class="warehouse-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</span><h3>${f.name}</h3><small>${here?'在房間裡':'在倉庫裡'}</small><button class="button ${here?'secondary':''} small full-width" type="button" data-warehouse="${f.id}">${here?'收起':'放入'}</button></article>`;
     }).join('');
-    return `<section class="panel warehouse"><div class="section-heading"><h2>我的倉庫</h2><small>房間裡 ${inRoom} 件 · 共 ${owned.length} 件</small></div>${owned.length?`<div class="warehouse-grid">${cards}</div>`:'<p>倉庫還是空的。<a class="text-button" href="#shop">去商店逛逛 →</a></p>'}</section>`;
+    return `<section class="panel warehouse"><div class="section-heading"><h2>${inGroup()?'共養倉庫':'我的倉庫'}</h2><small>房間裡 ${inRoom} 件 · 共 ${owned.length} 件</small></div>${owned.length?`<div class="warehouse-grid">${cards}</div>`:'<p>倉庫還是空的。<a class="text-button" href="${shopHash()}">去商店逛逛 →</a></p>'}</section>`;
   }
   function roomTools() {
     if(state.decorating)return `<div class="room-tools"><p>拖曳物品來擺放，也可以點選物品後用方向鍵微調（加按 Shift 移動較遠）。地面的家具只能放在地板上。</p><button class="button small" type="button" id="decorate-save">完成</button><button class="button secondary small" type="button" id="decorate-reset">還原預設位置</button><button class="text-button" type="button" id="decorate-cancel">取消</button></div>${warehouseHTML()}`;
-    return state.economy.inventory.length?'':'<div class="room-tools"><p>先到商店帶一件家具回家，就能開始佈置。</p></div>';
+    return roomEconomy().inventory.length?'':`<div class="room-tools"><p>先到${inGroup()?'共養':''}商店帶一件家具回家，就能開始佈置。</p></div>`;
   }
   // The page's security policy forbids inline style attributes, so positions are applied from script.
   function placeItems() {
@@ -79,13 +94,20 @@ export function createExtras(ctx) {
   function sizeIcons() {for(const el of $$('[data-icon]'))el.style.fontSize=el.dataset.icon+'px';}
   // The pet's name is a button: clicking it opens a small form that renames the pet for a few coins.
   const nameButton=name=>`<button type="button" class="pet-name" id="rename-pet" title="點一下更改名字（${RENAME_COST} 枚金幣）" aria-label="${esc(name)}，點一下更改名字，需要 ${RENAME_COST} 枚金幣">${esc(name)}<span class="pet-name-edit" aria-hidden="true">✎</span></button>`;
+  // The pet's (or the group pet's) name is paid for with that pet's coins; only the group's owner renames the group pet.
+  async function renamePet(name) {
+    if(inGroup()){await groupRoom.act({type:'rename',name});return;}
+    const old=state.economy;
+    state.economy=spend(old,{type:'rename',name});
+    if(!persist()){state.economy=old;throw new Error('名字還沒有保存，請稍後再試。');}
+  }
   function bindRename() {
     const open=$('#rename-pet');if(!open)return;
     const heading=open.closest('h2');
-    const close=()=>{heading.innerHTML=nameButton(state.economy.pet.name);bindRename();};
+    const close=()=>{heading.innerHTML=nameButton(roomEconomy().pet.name);bindRename();};
     open.addEventListener('click',()=>{
-      const affordable=canAfford(state.economy,RENAME_COST);
-      heading.innerHTML=`<form class="rename-form" id="rename-form"><input id="rename-input" maxlength="16" required value="${esc(state.economy.pet.name)}" aria-label="新的名字"><button class="button small" type="submit" ${affordable?'':'disabled'}>更改名字 · ${RENAME_COST} 🪙</button><button class="text-button" type="button" id="rename-cancel">取消</button>${affordable?'':'<span class="rename-note">金幣不足</span>'}</form>`;
+      const affordable=roomAfford(RENAME_COST);
+      heading.innerHTML=`<form class="rename-form" id="rename-form"><input id="rename-input" maxlength="16" required value="${esc(roomEconomy().pet.name)}" aria-label="新的名字"><button class="button small" type="submit" ${affordable?'':'disabled'}>更改名字 · ${RENAME_COST} 🪙</button><button class="text-button" type="button" id="rename-cancel">取消</button>${affordable?'':'<span class="rename-note">金幣不足</span>'}</form>`;
       const input=$('#rename-input');input.focus();input.select();
       $('#rename-cancel').addEventListener('click',close);
       input.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
@@ -93,15 +115,14 @@ export function createExtras(ctx) {
         event.preventDefault();
         const name=input.value.trim();
         if(!name||name.length>16){toast('名字請填 1 到 16 個字。');return;}
-        if(name===state.economy.pet.name){close();return;}
-        if(!await confirmAction('確定要改名嗎？',`要把「${state.economy.pet.name}」改成「${name}」，會花費 ${RENAME_COST} 🪙。`,'確定改名','再想想'))return;
-        const old=state.economy;
-        try{state.economy=spend(old,{type:'rename',name});}catch(error){toast(error.message);return;}
-        if(!persist()){state.economy=old;return;}
+        if(name===roomEconomy().pet.name){close();return;}
+        if(!await confirmAction('確定要改名嗎？',`要把「${roomEconomy().pet.name}」改成「${name}」，會花費 ${RENAME_COST} 🪙${inGroup()?'（共養金幣）':''}。`,'確定改名','再想想'))return;
+        try{await renamePet(name);}catch(error){toast(error.message);return;}
         // Updated in place so the pet keeps walking where it is.
         close();
-        const species=PETS.find(item=>item.id===state.economy.pet.id);
+        const species=PETS.find(item=>item.id===roomEconomy().pet.id);
         $('.pet-room')?.setAttribute('aria-label',`${name}的房間`);
+        if(!inGroup()){const subtitle=$('.page-heading p');if(subtitle)subtitle.textContent=`我和${name}的專屬房間`;}
         $('.room-pet')?.setAttribute('aria-label',`${species.name} ${name}，點一下會抖一抖`);
         refreshCare();
         toast(`已把名字改成「${name}」。`);
@@ -139,34 +160,48 @@ export function createExtras(ctx) {
     }
   }
   // Satisfaction falls with the awake hours since it was last set, so it is always worked out from the clock.
+  // My pet follows my own waking hours; the group's pet follows Taiwan's clock with the default waking hours.
   const sleepOf=()=>({wake:state.settings.wakeTime,bed:state.settings.currentBedtime});
   const clockOffset=()=>-new Date().getTimezoneOffset();
-  const moodNow=()=>Math.round(affectionNow(state.economy,Date.now(),sleepOf(),clockOffset()));
+  const moodNow=()=>{const e=roomEconomy();return e?Math.round(affectionNow(e,Date.now(),inGroup()?undefined:sleepOf(),inGroup()?480:clockOffset())):0;};
   const moodNote=mood=>{
-    const done=state.economy.careDays.includes(localDate());
-    return `${mood} / 100 · 清醒時會慢慢下降，睡覺時不扣${done?' · 今天的照顧完成 ✓':mood<40?' · 有點想你了':''}`;
+    const done=roomEconomy().careDays.includes(roomDay());
+    return `${mood} / 100 · ${inGroup()?'白天（07:00–23:00）會慢慢下降':'清醒時會慢慢下降，睡覺時不扣'}${done?' · 今天的照顧完成 ✓':mood<40?' · 有點想你了':''}`;
   };
   // Brings the care area, level and stage up to date without drawing the page again (which would restart the pet's walk).
   function refreshCare() {
-    const e=state.economy,bar=$('#mood-bar');
-    if(!e.pet||!bar)return;
+    const e=roomEconomy(),bar=$('#mood-bar');
+    if(!e?.pet||!bar)return;
     const mood=moodNow(),lv=level(e);
     bar.value=mood;bar.setAttribute('aria-label',`滿足感 ${mood} / 100`);
     $('#mood-note').textContent=moodNote(mood);
     const into=growthPoints(e)%POINTS_PER_LEVEL,levelBar=$('#growth-bar');
     if(levelBar){levelBar.value=into;levelBar.setAttribute('aria-label',`距離下一級的成長進度 ${into} / ${POINTS_PER_LEVEL}`);}
-    const button=$('#feed-pet');if(button)button.disabled=!canAfford(e,5)||mood>=100;
+    const button=$('#feed-pet');if(button)button.disabled=!roomAfford(5)||mood>=100;
     const levelText=$('#level-text');if(levelText)levelText.textContent=`Lv.${lv} · 一起完成 ${e.credits.length} 晚約定`;
-    const wallet=$('.coin-wallet');if(wallet){wallet.textContent=`🪙 ${coinText(e)}`;wallet.setAttribute('aria-label',`目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣`);}
+    const wallet=$('.coin-wallet');if(wallet){wallet.textContent=`🪙 ${roomCoinText()}`;wallet.setAttribute('aria-label',`目前 ${roomCoinWords()} 枚金幣`);}
     const pet=$('.room-pet'),stage=stageOf(lv);
     if(pet&&Number(pet.dataset.stage)!==stage){
       pet.dataset.stage=stage;
-      try{localStorage.setItem(`night-harbor-pet-stage-${userId}`,String(stage));}catch{/* Remembering is optional. */}
+      try{localStorage.setItem(stageKey(),String(stage));}catch{/* Remembering is optional. */}
     }
   }
   setInterval(refreshCare,60000);
-  function petHTML() {
-    const e=state.economy,pet=e.pet,p=PETS.find(p=>p.id===pet?.id),stage=pet?currentStage(pet):1,mood=moodNow();
+  // A group page needs the group first: say so while it loads, or when there is no group.
+  function groupMissingHTML() {
+    return `<div class="page-heading"><div><h1>共養夥伴</h1></div></div>${groupRoom?.ready()?'<section class="panel"><p>你目前沒有共養小組。</p><div class="form-actions"><a class="button secondary small" href="#social">到好友頁建立或加入</a></div></section>':'<p class="notice">正在讀取共養夥伴…</p>'}`;
+  }
+  // The button under my own room that leads to the group's room.
+  function groupEntryHTML() {
+    const g=groupData();
+    if(!g?.economy?.pet||state.decorating)return '';
+    return `<a class="button secondary group-entry" href="#group">${esc(g.economy.pet.name)}的房間 →</a>`;
+  }
+  function syncGroupEntry() {const slot=$('#group-entry');if(slot)slot.innerHTML=groupEntryHTML();}
+  function petHTML(kind='me') {
+    roomKind=kind;
+    if(inGroup()&&!groupData())return groupMissingHTML();
+    const e=roomEconomy(),pet=e.pet,p=PETS.find(p=>p.id===pet?.id),stage=pet?currentStage(pet):1,mood=moodNow(),g=groupData();
     const layout=state.decorating?state.layoutDraft:e.layout,placed=state.decorating?state.placedDraft:e.placed;
     const furniture=()=>FURNITURE.filter(f=>placed.includes(f.id)).map(f=>{
       const spot=itemSpot(f,layout),place=`data-x="${spot.x}" data-y="${spot.y}" data-size="${f.size}"`;
@@ -174,11 +209,29 @@ export function createExtras(ctx) {
         ?`<span class="room-item room-${f.slot} is-decorating" role="button" tabindex="0" data-furniture="${f.id}" ${place} aria-label="${esc(f.name)}，拖曳或用方向鍵移動">${f.emoji}</span>`
         :`<span class="room-item room-${f.slot}" role="img" ${place} aria-label="${esc(f.name)}">${f.emoji}</span>`;
     }).join('');
-    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${nameButton(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${state.decorating?'':'<button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button>'}</div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 🪙</button></div>`}`;
+    const others=inGroup()?g.members.filter(m=>m.id!==userId).map(m=>`@${esc(m.username)}`):[];
+    const heading=`<div class="page-heading"><div><h1>${inGroup()?esc(g.name):'我的小夥伴'}</h1>${inGroup()?`<p>${others.length?`我和${others.join('、')}的專屬房間`:'目前只有我的專屬房間，到好友頁邀請朋友一起照顧吧'}</p>`:pet?`<p>我和${esc(pet.name)}的專屬房間</p>`:''}</div><span class="coin-wallet" aria-label="目前 ${roomCoinWords()} 枚金幣">🪙 ${roomCoinText()}</span></div>`;
+    if(!pet)return `${heading}<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`;
+    const actions=state.decorating?'':`<span class="nameplate-actions"><a class="button small shop-entry" href="${shopHash()}">${icon('shop')}商店</a><button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button></span>`;
+    const nameplate=`<div class="pet-nameplate"><h2>${canRename()?nameButton(pet.name):esc(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${actions}</div>`;
+    const bubble=!inGroup()&&todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:'';
+    const room=`<section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${bubble}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>`;
+    // Under the room: my room has the way to the group's room, and the group's room has the way back.
+    const entry=inGroup()?(state.decorating?'':'<div class="group-entry-slot"><a class="button secondary group-entry" href="#pet">← 我的房間</a></div>'):`<div id="group-entry" class="group-entry-slot">${groupEntryHTML()}</div>`;
+    const care=`<div class="pet-care"><div><span class="care-label">${inGroup()?'和大家相處的滿足感':'和你相處的滿足感'}</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!roomAfford(5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 🪙</button></div>`;
+    return `${heading}${nameplate}${room}${entry}${roomTools()}${care}`;
   }
-  function shopHTML() {
-    const e=state.economy,pet=e.pet;
-    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?(equipped?'placed':'gold-button'):''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div>`}`;
+  function shopHTML(kind='me') {
+    roomKind=kind;
+    if(inGroup()&&!groupData())return groupMissingHTML();
+    const e=roomEconomy(),pet=e.pet;
+    const heading=`<div class="page-heading"><div><h1>${inGroup()?'共養商店':'商店'}</h1>${pet?`<p>專屬${esc(pet.name)}房間的商店</p>`:''}</div><span class="coin-wallet" aria-label="目前 ${roomCoinWords()} 枚金幣">🪙 ${roomCoinText()}</span></div>`;
+    if(!pet)return `${heading}<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`;
+    const cards=FURNITURE.map(f=>{
+      const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);
+      return `<article class="shop-card"><div class="furniture-emoji" data-icon="${iconSize(f)}" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?(equipped?'placed':'gold-button'):''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!roomAfford(f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;
+    }).join('');
+    return `${heading}<div class="section-heading"><h2>${'替小房間添一點喜歡的東西'}</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${cards}</div>`;
   }
   const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
@@ -322,7 +375,15 @@ export function createExtras(ctx) {
     }
   }
   // Feeding updates the page in place: a full re-render would drop the pet at its walking destination.
-  function feedPet() {
+  async function feedPet() {
+    if(inGroup()) {
+      const before=level(roomEconomy());
+      try{await groupRoom.act({type:'feed'});}catch(error){toast(error.message);return;}
+      refreshCare();
+      if(petReact)petReact();
+      if(level(roomEconomy())>before)toast(`共養夥伴升到 Lv.${level(roomEconomy())}！`);
+      return;
+    }
     const old=state.economy,before=level(old);
     try{state.economy=careForPet(old,{sleep:sleepOf(),offset:clockOffset(),day:localDate(),free:UNLIMITED_COINS});}catch(error){toast(error.message);return;}
     if(!persist()){state.economy=old;return;}
@@ -330,16 +391,22 @@ export function createExtras(ctx) {
     if(petReact)petReact();
     if(level(state.economy)>before)toast(`小夥伴升到 Lv.${level(state.economy)}！`);
   }
+  let lastRoomPage='';
   function bind(page) {
-    if(page!=='pet'){stopWander();state.decorating=false;}
-    if(page==='pet') {
-      if(state.economy.pet&&!state.economy.affectionAt){state.economy={...state.economy,affectionAt:new Date().toISOString()};persist();}
+    const roomPage=page==='pet'||page==='group';
+    if(!roomPage){stopWander();state.decorating=false;lastRoomPage='';}
+    else if(page!==lastRoomPage){state.decorating=false;lastRoomPage=page;}
+    if(roomPage) {
+      roomKind=page==='group'?'group':'me';
+      if(inGroup()&&!groupData())return;
+      if(!inGroup()&&state.economy.pet&&!state.economy.affectionAt){state.economy={...state.economy,affectionAt:new Date().toISOString()};persist();}
       placeItems();
       bindRename();
       if(state.decorating){stopWander();bindDecorate();}else startWander();
       $('#decorate-start')?.addEventListener('click',()=>{
-        if(!state.economy.inventory.length){toast('先到商店帶一件家具回家，就能開始佈置。');return;}
-        state.decorating=true;state.layoutDraft={...state.economy.layout};state.placedDraft=[...state.economy.placed];render();
+        const e=roomEconomy();
+        if(!e.inventory.length){toast(`先到${inGroup()?'共養':''}商店帶一件家具回家，就能開始佈置。`);return;}
+        state.decorating=true;state.layoutDraft={...e.layout};state.placedDraft=[...e.placed];render();
       });
       $('#decorate-cancel')?.addEventListener('click',()=>{state.decorating=false;state.layoutDraft=null;state.placedDraft=null;render();});
       $('#decorate-reset')?.addEventListener('click',()=>{state.layoutDraft={};render();});
@@ -349,23 +416,33 @@ export function createExtras(ctx) {
         state.placedDraft=list.includes(id)?list.filter(x=>x!==id):[...list,id];
         render();window.scrollTo(0,top);
       }));
-      $('#decorate-save')?.addEventListener('click',()=>{
-        const old=state.economy;state.economy=normaliseEconomy({...old,placed:state.placedDraft,layout:state.layoutDraft});
-        if(!persist()){state.economy=old;return;}
+      $('#decorate-save')?.addEventListener('click',async()=>{
+        if(inGroup()) {
+          try{await groupRoom.act({type:'layout',placed:state.placedDraft,layout:state.layoutDraft});}catch(error){toast(error.message);return;}
+        } else {
+          const old=state.economy;state.economy=normaliseEconomy({...old,placed:state.placedDraft,layout:state.layoutDraft});
+          if(!persist()){state.economy=old;return;}
+        }
         state.decorating=false;state.layoutDraft=null;state.placedDraft=null;render();toast('房間的佈置已保存。');
       });
       $$('[data-pet-choice]').forEach(el=>el.addEventListener('click',()=>{state.petNameDraft=$('#pet-name')?.value||'';state.petDraft=el.dataset.petChoice;render();}));
       $('#pet-form')?.addEventListener('submit',e=>{e.preventDefault();state.petNameDraft=$('#pet-name').value;applyPet({type:'adopt',id:state.petDraft||state.economy.pet?.id||'cat',name:state.petNameDraft},'小夥伴準備好陪你一起開始了。');});
       $('#feed-pet')?.addEventListener('click',feedPet);
     }
-    if(page==='shop') {
+    if(page==='shop'||page==='groupshop') {
+      roomKind=page==='groupshop'?'group':'me';
       sizeIcons();
-      $$('[data-shop]').forEach(el=>el.addEventListener('click',()=>applyPet({type:el.dataset.shopAction,id:el.dataset.shop},el.dataset.shopAction==='buy'?'新家具已經帶回家。':'房間布置已更新。')));
+      $$('[data-shop]').forEach(el=>el.addEventListener('click',async()=>{
+        const event={type:el.dataset.shopAction,id:el.dataset.shop},message=el.dataset.shopAction==='buy'?'新家具已經帶回家。':'房間布置已更新。';
+        if(!inGroup()){applyPet(event,message);return;}
+        try{await groupRoom.act(event);}catch(error){toast(error.message);return;}
+        render();toast(message);
+      }));
     }
     if(page==='reports') {
       setTimeout(()=>maybeRecap(state.reportMode==='monthly'?'monthly':'weekly'));
       $$('[data-report-mode]').forEach(el=>el.addEventListener('click',()=>{state.reportMode=el.dataset.reportMode;render();}));
     }
   }
-  return {petHTML,shopHTML,reportsHTML,bind,rememberTarget,awardRecord};
+  return {petHTML,shopHTML,reportsHTML,bind,rememberTarget,awardRecord,syncGroupEntry};
 }

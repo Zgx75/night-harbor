@@ -42,3 +42,6 @@
 .record-saved{border-color:#a8c5b155;background:#a8c5b10c}.record-saved h2{font-size:17px}.record-saved-list{display:grid;gap:4px;margin:10px 0 14px;padding-left:20px;font-size:14px}
 .shop-card .button.placed{background:transparent;border:1px solid #a8c5b199;color:var(--green)}.shop-card .button.placed:hover{background:#a8c5b114;transform:none}
 .button.gold-button:hover{background:#efdcae}
+.pet-nameplate .nameplate-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-left:auto}
+.group-entry-slot:not(:empty){margin-top:12px}.group-entry{width:100%}
+.shop-entry{gap:8px}.shop-entry svg{width:18px;height:18px;flex:none}
