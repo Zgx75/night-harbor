@@ -78,7 +78,7 @@ test('each account owns its records, pet, coins, settings and saved goals', asyn
   const f = await fixture(t), a = f.browser(), b = f.browser();
   const first = await register(a, 'first'), second = await register(b, 'second');
   const profile = sampleProfile();
-  profile.settings = { currentBedtime: '02:00', targetBedtime: '00:30', wakeTime: '08:30', reminders: true, saveClosures: true };
+  profile.settings = { currentBedtime: '02:00', targetBedtime: '00:30', wakeTime: '08:30' };
   const saved = await a.request('/api/profile', { revision: 0, profile, userId: second.id });
   assert.equal(saved.status, 200);
   const result = await (await a.request('/api/profile')).json();
@@ -86,7 +86,7 @@ test('each account owns its records, pet, coins, settings and saved goals', asyn
   assert.equal(result.profile.economy.credits.length, profile.economy.credits.length);
   assert.equal(result.profile.records.length, profile.records.length);
   assert.deepEqual(result.profile.factorSurveys, profile.factorSurveys);
-  assert.equal(result.profile.settings.reminders, true);
+  assert.equal(result.profile.settings.currentBedtime, '02:00');
   assert.deepEqual(await (await b.request(`/api/profile?userId=${first.id}`)).json().then(data => data.profile), {});
   const device = f.browser();
   assert.equal((await device.request('/api/auth/login', credential('first'))).status, 200);
@@ -97,11 +97,11 @@ test('stale device updates are rejected instead of overwriting newer account dat
   const f = await fixture(t), a = f.browser(), device = f.browser();
   await register(a);
   await device.request('/api/auth/login', credential('tester'));
-  assert.equal((await a.request('/api/profile', { revision: 0, profile: { settings: { reminders: true } } })).status, 200);
-  const conflict = await device.request('/api/profile', { revision: 0, profile: { settings: { reminders: false } } });
+  assert.equal((await a.request('/api/profile', { revision: 0, profile: { settings: { targetBedtime: '01:00' } } })).status, 200);
+  const conflict = await device.request('/api/profile', { revision: 0, profile: { settings: { targetBedtime: '02:00' } } });
   assert.equal(conflict.status, 409);
   assert.equal((await conflict.json()).code, 'PROFILE_CONFLICT');
-  assert.equal((await (await device.request('/api/profile')).json()).profile.settings.reminders, true);
+  assert.equal((await (await device.request('/api/profile')).json()).profile.settings.targetBedtime, '01:00');
   assert.equal((await device.request('/api/profile', { revision: 1, profile: { records: [{ date: 'invalid' }] } })).status, 400);
   assert.equal((await (await a.request('/api/profile')).json()).revision, 1);
 });

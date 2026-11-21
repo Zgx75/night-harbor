@@ -33,10 +33,6 @@ export function cleanProfile(value) {
     if (!(key === 'currentBedtime' && time === '') && !isTime(time)) throw new AppError(400, 'PROFILE_INPUT', '偏好設定的時間格式有誤。');
     settings[key] = time;
   }
-  for (const [key, fallback] of Object.entries({ reminders: false, saveClosures: true })) {
-    if (s[key] !== undefined && typeof s[key] !== 'boolean') throw new AppError(400, 'PROFILE_INPUT', '偏好設定格式有誤。');
-    settings[key] = s[key] ?? fallback;
-  }
   const closures = value.closures ?? [];
   if (!Array.isArray(closures) || closures.length > 60) throw new AppError(400, 'PROFILE_INPUT', '最多保存 60 筆收尾紀錄。');
   const cleanClosures = closures.map(c => {

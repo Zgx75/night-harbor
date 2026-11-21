@@ -1,6 +1,5 @@
-import { canNudge } from './timing.js';
 import { cleanRecords } from './records.js';
-import { createEconomy, normaliseEconomy, assessNight, addDays } from './progress.js';
+import { normaliseEconomy, assessNight, addDays } from './progress.js';
 import { createExtras } from './extras.js';
 import {planInputKey,cachedPlan,lockedTarget,targetPlan} from './plan-state.js';
 import { openAccount, createProfileSync } from './account.js';
@@ -42,7 +41,7 @@ const profileSync = createProfileSync(account,{onSaved:profile=>{
   state.economy=next;
   if(changed&&view()==='pet'&&!document.activeElement?.matches('input,textarea,select'))render();
 }});
-const defaults = { currentBedtime: '', targetBedtime: '00:30', wakeTime: '08:30', reminders: false, saveClosures: true };
+const defaults = { currentBedtime: '', targetBedtime: '00:30', wakeTime: '08:30' };
 const initial = account.profile || {};
 const state = {
   settings: { ...defaults, ...(initial.settings || {}) },
@@ -53,7 +52,7 @@ const state = {
   flow: 'home',
   plan: null, aiPlan:initial.aiPlan||null, planBusy:false, planError:'', planRun:0, lastPlanDate:'',
   knowledge: [], health: null,
-  selectedDate: '', lastActivity: Date.now(), nudgeDate: '', snoozedUntil: 0
+  selectedDate: ''
 };
 function localDate(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function nightDate(d = new Date()) { const day = new Date(d); if (day.getHours() < 6) day.setDate(day.getDate()-1); return localDate(day); }
@@ -136,19 +135,46 @@ function logsHTML() {
     : '';
   const qualityField = `<fieldset class="quality-field"><legend>前一晚睡眠品質（再點一次可以取消）</legend><div class="quality-row" role="radiogroup">${QUALITY.map(([n, face, text]) => `<label class="quality-option"><input type="radio" name="sleepQuality" value="${n}" ${Number(row.sleepQuality) === n ? 'checked' : ''}><span class="quality-face" aria-hidden="true">${face}</span><span>${text}</span></label>`).join('')}</div></fieldset>`;
   const more = recent.length > RECENT_RECORDS ? `<button class="button secondary small record-more" type="button" id="toggle-records">${state.showAllRecords ? `只看最近 ${RECENT_RECORDS} 筆` : `顯示更早的紀錄（還有 ${recent.length - RECENT_RECORDS} 筆）`}</button>` : '';
-  return `${heading('睡眠紀錄')}${savedPanel()}<section class="panel"><h2>${row.date ? '補充' : '新增'}一天的紀錄</h2><form id="record-form"><label class="field record-date-field"><input type="date" id="record-date" name="date" required max="${localDate()}" value="${esc(date)}" aria-label="哪一天早上起床"></label><div class="form-section"><h3>☀ 昨晚睡得怎麼樣？</h3></div>${targetLine}<label class="field">前一晚上床準備睡覺時間<input type="time" name="bedAt" value="${esc(row.bedAt || '')}"></label>${qualityField}<div class="form-actions"><button class="button" type="submit">保存早晨回報${icon('check')}</button></div><p class="form-message" id="record-message" role="status"></p></form></section><div class="section-heading"><h2>最近的睡眠紀錄</h2><small>${state.records.length} 天紀錄</small></div>${state.records.length ? `<div class="record-list">${shown.map(recordCard).join('')}</div>${more}` : '<div class="empty"><span class="empty-icon">☀</span><p>先設定今晚的目標，明早就能回報第一晚。</p><a href="#settings" class="button secondary small">到設定填寫作息</a></div>'}<p class="notice">自行回報的時間不是系統偵測。刪除紀錄不會重設已發放金幣；同一晚無法重新領取。</p>`;
+  return `${heading('睡眠紀錄')}${savedPanel()}<div id="tonight-slot">${tonightHTML()}</div><section class="panel"><h2>${row.date ? '補充' : '新增'}一天的紀錄</h2><form id="record-form"><label class="field record-date-field"><input type="date" id="record-date" name="date" required max="${localDate()}" value="${esc(date)}" aria-label="哪一天早上起床"></label><div class="form-section"><h3>☀ 昨晚睡得怎麼樣？</h3></div>${targetLine}<label class="field">前一晚上床準備睡覺時間<input type="time" name="bedAt" value="${esc(row.bedAt || '')}"></label>${qualityField}<div class="form-actions"><button class="button" type="submit">保存早晨回報${icon('check')}</button></div><p class="form-message" id="record-message" role="status"></p></form></section><div class="section-heading"><h2>最近的睡眠紀錄</h2><small>${state.records.length} 天紀錄</small></div>${state.records.length ? `<div class="record-list">${shown.map(recordCard).join('')}</div>${more}` : '<div class="empty"><span class="empty-icon">☀</span><p>先設定今晚的目標，明早就能回報第一晚。</p><a href="#settings" class="button secondary small">到設定填寫作息</a></div>'}<p class="notice">自行回報的時間不是系統偵測。刪除紀錄不會重設已發放金幣；同一晚無法重新領取。</p>`;
 }
 
+// Tonight's goal sits at the top of the log page: the one thing to look at before writing down last night.
+function tonightHTML() {
+  const p=state.plan,t=p?.points?.[0],ai=p?.source==='gemini',s=state.settings;
+  const regenerate='<button class="button secondary small" type="button" id="regen-plan">重新產生</button>';
+  if(!t) {
+    // Until the first attempt has started there is nothing to say yet except that it is coming.
+    if(state.planBusy||!state.lastPlanDate)return '<section class="panel tonight-card"><small class="tonight-label">今晚的目標</small><p class="notice" role="status">AI 正在整理今晚的目標…</p></section>';
+    return `<section class="panel tonight-card"><small class="tonight-label">今晚的目標</small><p>${esc(state.planError||p?.message||'先到設定填入作息時間，就能得到今晚的目標。')}</p><div class="form-actions"><a class="button secondary small" href="#settings">到設定填寫作息</a>${state.planError?regenerate:''}</div></section>`;
+  }
+  const more=[
+    p.observations?.length?`<ul>${p.observations.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'',
+    `<p class="notice">參考起點：${esc(p.baseline||'—')} · ${esc(p.baselineSource||'這晚原先保存的約定')}</p>`,
+    p.shortOpportunity?'<p class="notice">目前過渡期的上床到起床區間仍少於七小時，可檢視是否能留出更多睡眠空間；這個區間不代表真正睡著的時數。</p>':'',
+    `<p class="notice">最終希望上床 ${esc(s.targetBedtime)}。${esc(p.note||'只依這晚事先保存的目標核對獎勵。')} 時間已到的約定不事後更改。</p>`
+  ].join('');
+  const source=p.locked?'本晚的目標已固定':ai?'由 Gemini 根據你的紀錄產生':'先前保存的安排';
+  return `<section class="panel tonight-card"><small class="tonight-label">今晚的目標</small><div class="tonight-time">${esc(t.bedtime)}</div>${p.message?`<p class="answer-text">${esc(p.message)}</p>`:''}${p.nextStep?`<p><strong>今天先試一件事：</strong>${esc(p.nextStep)}</p>`:''}${state.planBusy?'<p class="notice" role="status">AI 正在依最新資料更新…</p>':''}${state.planError?`<p class="notice">AI 目標暫時無法更新：${esc(state.planError)}。先沿用目前的目標。</p>`:''}<details class="tonight-more"><summary>看詳細</summary>${more}</details><div class="form-actions">${(state.planError||!ai)&&!p.locked&&!state.planBusy?regenerate:''}<small>${source}</small></div></section>`;
+}
+// The card is redrawn on its own, so the log form below is never disturbed while the AI works.
+function refreshTonight() {
+  const slot=$('#tonight-slot');
+  if(!slot)return;
+  slot.innerHTML=tonightHTML();bindTonight();
+}
+function bindTonight() {
+  listen('#regen-plan','click',async()=>{const pending=updatePlan({force:true});refreshTonight();await pending;refreshTonight();});
+}
 function planSection() {
-  const s=state.settings,p=state.plan,t=p?.points?.[0],ai=p?.source==='gemini';
-  return `<div class="section-heading"><h2>作息設定</h2><small>AI 每日作息目標</small></div><section class="panel"><h2>先設定最終方向</h2><p>你設定想靠近的時間，AI 根據每天的紀錄，決定今晚做得到的一步。</p><form id="plan-form"><div class="form-grid"><label class="field">目前通常幾點上床<input type="time" name="currentBedtime" value="${esc(s.currentBedtime)}"><span class="field-hint">初次使用的起點；近期滿三筆上床紀錄後，改由紀錄估計。</span></label><label class="field">最終希望幾點上床<input type="time" name="targetBedtime" required value="${esc(s.targetBedtime)}"><span class="field-hint">這是長期方向，不是今晚必須達成的時間。</span></label><label class="field">通常需要幾點起床<input type="time" name="wakeTime" required value="${esc(s.wakeTime)}"></label></div><div class="form-actions"><button class="button" type="submit" ${state.planBusy?'disabled':''}>${state.planBusy?'AI 正在分析紀錄…':'儲存方向並產生今晚目標'}${icon('sparkles')}</button><span class="notice">會將近期作息與生活紀錄交由 Gemini 分析。</span></div><p class="form-message" id="plan-message" role="status"></p></form></section>${state.planError?'<div class="error-box" role="alert">'+esc(state.planError)+(t?' 目前沿用本晚已保存的目標；尚未依最新資料更新。':' 尚未產生今晚的 AI 目標。')+'</div>':''}${t?`<div class="plan-summary"><div class="metric"><small>最終希望上床</small><strong>${esc(s.targetBedtime)}</strong></div><div class="metric"><small>${ai?'今晚 AI 建議上床':'今晚原先保存的目標'}</small><strong>${esc(t.bedtime)}</strong></div><div class="metric"><small>今晚開始收心</small><strong>${esc(t.windDown)}</strong></div></div><section class="panel"><div class="section-heading"><h2>今晚，先做到這一步</h2><span class="chip">${p.locked?'本晚約定已固定':ai?'AI 個人化分析':'先前保存的安排'}</span></div><p class="answer-text">${esc(p.message)}</p>${p.observations?.length?'<ul>'+p.observations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${p.nextStep?'<p><strong>今天先試一件事：</strong>'+esc(p.nextStep)+'</p>':''}<p class="notice">參考起點：${esc(p.baseline||'—')} · ${esc(p.baselineSource||'這晚原先保存的約定')}</p><div class="timeline"><div class="timeline-item"><span class="time">${esc(t.windDown)}</span><span class="label">開始收心</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.dimLights)}</span><span class="label">調暗燈光</span></div><span class="timeline-arrow">→</span><div class="timeline-item"><span class="time">${esc(t.bedtime)}</span><span class="label">上床準備睡覺</span></div></div>${p.shortOpportunity?'<p class="notice">目前過渡期的上床到起床區間仍少於七小時，可檢視是否能留出更多睡眠空間；這個區間不代表真正睡著的時數。</p>':''}<p class="notice">${esc(p.note||'只依這晚事先保存的目標核對獎勵。')} 早晨填寫紀錄後，AI 會再分析當晚的目標；時間已到的約定不事後更改。</p></section>`:'<div class="empty"><span class="empty-icon">⌁</span><p>'+esc(state.planBusy?'AI 正在根據你的資料安排今晚…':p?.message||'填入通常上床時間與最終目標，就能開始。')+'</p></div>'}`;
+  const s=state.settings;
+  return `<section class="panel"><h2>作息設定</h2><form id="plan-form"><div class="form-grid"><label class="field">目前通常幾點上床<input type="time" name="currentBedtime" value="${esc(s.currentBedtime)}"><span class="field-hint">初次使用的起點；近期滿三筆上床紀錄後，改由紀錄估計。</span></label><label class="field">最終希望幾點上床<input type="time" name="targetBedtime" required value="${esc(s.targetBedtime)}"><span class="field-hint">這是長期方向，不是今晚必須達成的時間。</span></label><label class="field">通常需要幾點起床<input type="time" name="wakeTime" required value="${esc(s.wakeTime)}"></label></div><div class="form-actions"><button class="button" type="submit">儲存</button></div></form></section>`;
 }
 function settingsHTML() {
-  return `${heading('偏好設定')}<div class="settings-stack">${planSection()}<section class="panel"><h2>溫和介入提醒</h2><p>到了作息設定中的「開始收心」時間，如果這個頁面仍在開啟且近期有操作，就會主動問候一次。</p><label class="check-row"><input type="checkbox" id="reminders-toggle" ${state.settings.reminders?'checked':''}>開啟頁面內收心提醒</label><div class="form-actions"><button class="button secondary small" id="preview-nudge">體驗一次關心提醒</button><button class="text-button" id="enable-notifications">允許瀏覽器通知</button></div><p class="notice">手機網頁無法偵測其他 App 的使用情況，頁面關閉或被系統暫停後也不保證提醒。</p></section>${onboarding.settingsHTML()}</div>`;
+  return `${heading('偏好設定')}<div class="settings-stack">${planSection()}${onboarding.settingsHTML()}</div>`;
 }
 function userHTML() {
   const u=account.user;
-  return `${heading('使用者')}<section class="panel"><div class="user-identity"><strong>${esc(u.displayName)}</strong><small>@${esc(u.username)}</small></div><div class="form-actions"><button class="button secondary" type="button" id="logout-account">登出</button></div></section>${me.html()}<section class="panel"><h2>你的資料，由你決定</h2><p>生活、寵物、金幣與偏好會儲存至你的帳號，並在此裝置暫存尚未同步的變更。產生每日作息目標或 AI 回報時，近期相關紀錄與回報統計會送到後端與 Google Gemini。</p><p>手機與電腦登入同一帳號，重新開啟頁面即可讀取最新資料。Google 的資料處理仍依其服務政策。</p><div class="form-actions"><button class="button secondary small" id="export-data">${icon('download')}匯出我的資料</button><button class="text-button danger" id="clear-data">清除帳號資料</button></div></section>`;
+  return `${heading('使用者')}<section class="panel"><div class="user-identity"><strong>${esc(u.displayName)}</strong><small>@${esc(u.username)}</small></div><div class="form-actions"><button class="button secondary" type="button" id="logout-account">登出</button></div></section>${me.html()}`;
 }
 function render() {
   // A triggered follow-up must be answered first; every other page returns to it.
@@ -160,9 +186,9 @@ function render() {
   document.body.dataset.page = styled;
   const accountButton=$('#account-button');
   if(accountButton){if(page==='user')accountButton.setAttribute('aria-current','page');else accountButton.removeAttribute('aria-current');}
-  // The home page (夥伴) has nowhere to go back to; every other page offers a way back.
   const backButton=$('#back-button');
-  if(backButton)backButton.hidden=page==='pet';
+  // The tabs themselves have nothing to go back to; the pages inside them (shop, group room, user page, questionnaire) do.
+  if(backButton)backButton.hidden=['pet','logs','reports','social','settings','factors'].includes(page);
   $$('.nav-link').forEach(a => { a.classList.toggle('active',a.dataset.nav===navPage); if(a.dataset.nav===navPage) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   const html = ({ pet:()=>extras.petHTML('me'), shop:()=>extras.shopHTML('me'), group:()=>extras.petHTML('group'), groupshop:()=>extras.shopHTML('group'), reports:extras.reportsHTML, logs:logsHTML, settings:settingsHTML, social:social.html, user:userHTML, onboarding:onboarding.html, factors:factorSurvey.html })[page]();
   const pageHTML=page==='pet'?onboarding.promptHTML()+html:html;
@@ -203,22 +229,13 @@ async function confirmAction(title,description,confirmLabel='確定清除',cance
   dialog.returnValue=''; dialog.showModal();
   return await new Promise(resolve=>dialog.addEventListener('close',()=>resolve(dialog.returnValue==='confirm'),{once:true}));
 }
-function download(name,content,type) {
-  const url=URL.createObjectURL(new Blob([content],{type})), link=document.createElement('a');
-  link.href=url; link.download=name; document.body.append(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
 function bind(page) {
   if(page==='user') {
     listen('#logout-account','click',()=>profileSync.logout($('#logout-account')));
     me.bind();
-    listen('#export-data','click',()=>download(`夜泊-帳號紀錄-${localDate()}.json`,JSON.stringify({version:3,exportedAt:new Date().toISOString(),settings:state.settings,records:state.records,closures:state.closures,economy:state.economy,targets:state.targets,aiPlan:state.aiPlan},null,2),'application/json;charset=utf-8'));
-    listen('#clear-data','click',async()=>{
-      if(!await confirmAction('清除這個帳號的全部資料？','將移除帳號中的生活紀錄、寵物、金幣、家具與偏好設定，並同步到其他裝置。你可以先匯出備份。'))return;
-      Object.assign(state,{settings:{...defaults},records:[],closures:[],economy:createEconomy(),targets:{},onboarding:null,petFeedback:null,factorSurveys:[],weeklyRecap:null,weeklyError:'',weeklyTried:'',monthlyRecap:null,monthlyError:'',monthlyTried:'',plan:null,aiPlan:null,planError:'',flow:'home',nudgeDate:'',snoozedUntil:0});
-      const saved=persist();$('#nudge').hidden=true;render();if(saved)toast('已清除帳號資料，正在同步。');
-    });
   }
   if(page==='logs') {
+    bindTonight();
     listen('#record-date','change',e=>{state.selectedDate=e.target.value;render();});
     // One tap fills the bedtime that was planned for last night.
     listen('#fill-target','click',e=>{$('input[name=bedAt]').value=e.currentTarget.dataset.target;});
@@ -261,10 +278,9 @@ function bind(page) {
         // A follow-up survey takes over the page, so say it in a toast too.
         if(saved&&location.hash==='#factors')toast([reward,petLine].filter(Boolean).join(' ')||'紀錄已保存。');
         else window.scrollTo({top:0});
-        await updatePlan();
+        const planning=updatePlan();refreshTonight();await planning;refreshTonight();
         note.planNote=state.planError?`今晚的 AI 作息目標暫時無法更新：${state.planError}`:'今晚的作息目標也已更新。';
         const planLine=$('#saved-plan-note');if(state.logSaved===note&&planLine)planLine.textContent=note.planNote;
-        checkNudge();
       } catch(err) { $('#record-message').textContent=err.message;button.disabled=false; }
     });
     $$('[data-edit]').forEach(el=>el.addEventListener('click',()=>{state.selectedDate=el.dataset.edit;render();$('#record-form').scrollIntoView({block:'center'});$('#record-date').focus({preventScroll:true});}));
@@ -274,35 +290,16 @@ function bind(page) {
     }));
   }
   if(page==='settings') {
-    listen('#plan-form','submit',async e=>{
-      e.preventDefault();const button=$('button[type=submit]',e.target);button.disabled=true;
-      const next={...state.settings,...Object.fromEntries(new FormData(e.target))};
-      try { state.settings=next;persist();const pending=updatePlan({force:true});render();await pending;render();toast(state.planError?'最終方向已保存，AI 分析可稍後重試。':'今晚的作息目標已更新。');checkNudge(); }
-      catch(err){$('#plan-message').textContent=err.message;button.disabled=false;}
-    });
-  }
-  if(page==='settings') {
-    listen('#reminders-toggle','change',e=>{state.settings.reminders=e.target.checked;persist();if(e.target.checked&&!state.plan?.points?.length)toast('先在上方作息設定填入通常就寢時間，提醒就會依此安排。');checkNudge();});
-    listen('#preview-nudge','click',()=>showNudge(true));
-    listen('#enable-notifications','click',async()=>{
-      if(!('Notification'in window)){toast('此瀏覽器不支援通知，仍可使用頁面內提醒。');return;}
-      try { const permission=await Notification.requestPermission();toast(permission==='granted'?'已允許通知；頁面開啟時可接收收心提醒。':'仍可使用頁面內提醒，不影響其他功能。'); } catch {toast('目前無法開啟通知，仍可使用頁面內提醒。');}
+    listen('#plan-form','submit',e=>{
+      e.preventDefault();
+      state.settings={...state.settings,...Object.fromEntries(new FormData(e.target))};
+      persist();toast('作息時間已儲存。');
+      // Tonight's goal (shown on the log page) is worked out in the background.
+      updatePlan({force:true}).then(refreshTonight).catch(()=>{});
     });
   }
 }
 
-function showNudge(preview=false) {
-  const el=$('#nudge');
-  el.innerHTML=`<span class="chip gold">${preview?'提醒預覽':'到了約定的收心時間'}</span><h2>還醒著嗎？留一點時間給你。</h2><p>到了約定的收心時間，可以把手機放遠、調暗燈光，慢慢準備休息。</p><div class="nudge-actions"><button class="button small" id="nudge-ok">知道了${icon('check')}</button><button class="text-button" id="nudge-dismiss">十分鐘後再說</button></div>`;
-  el.hidden=false;
-  $('#nudge-ok').addEventListener('click',()=>{el.hidden=true;});
-  $('#nudge-dismiss').addEventListener('click',()=>{el.hidden=true;state.snoozedUntil=Date.now()+10*60000;if(!preview)state.nudgeDate='';});
-  if(!preview && 'Notification'in window && Notification.permission==='granted')try{new Notification('夜泊 · 還醒著嗎？',{body:'到了約定的收心時間，留一點時間替今天收尾。',icon:'/icon.svg'});}catch{}
-}
-function checkNudge() {
-  const point=state.plan?.points?.[0];
-  if(canNudge({enabled:state.settings.reminders,visible:document.visibilityState==='visible',flow:state.flow,handled:state.nudgeDate===nightDate(),snoozedUntil:state.snoozedUntil,lastActivity:state.lastActivity,point,now:Date.now()})){state.nudgeDate=nightDate();showNudge();}
-}
 // How many steps into the app this page is, so "back" can never take someone out of the app.
 let stepIndex=Number.isInteger(history.state?.appStep)?history.state.appStep:0;
 if(!Number.isInteger(history.state?.appStep))history.replaceState({appStep:0},'');
@@ -312,9 +309,7 @@ function trackStep() {
 }
 $('#back-button').addEventListener('click',()=>{if(stepIndex>0)history.back();else location.hash='#pet';});
 window.addEventListener('hashchange',()=>{trackStep();render();if(['social','group','groupshop'].includes(view()))social.refresh();if(view()==='user')me.refresh();window.scrollTo({top:0});});
-for(const type of ['pointerdown','keydown','touchstart'])document.addEventListener(type,()=>state.lastActivity=Date.now(),{passive:true});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){state.lastActivity=Date.now();checkNudge();}});
-setInterval(()=>{if(state.lastPlanDate!==nightDate()){updatePlan().then(()=>{if((view()==='settings'||view()==='reports')&&!document.activeElement?.matches('input,textarea,select'))render();checkNudge();}).catch(()=>{});}else checkNudge();},30000);
+setInterval(()=>{if(state.lastPlanDate!==nightDate()){updatePlan().then(refreshTonight).catch(()=>{});}},30000);
 for(const [date,t] of Object.entries(state.targets))if(date>nightDate()&&t.source!=='gemini')delete state.targets[date];
 persist();
 if(onboarding.shouldStart())location.hash='onboarding';
@@ -330,5 +325,5 @@ Promise.allSettled([api('/api/health'),api('/api/knowledge'),updatePlan()]).then
   $('#connection-label').textContent=state.health?(state.health.configured?'AI 金鑰已設定':'AI 尚未設定'):'後端未連線';
   $('#status-dot').classList.toggle('connected',Boolean(state.health?.configured));
   // Do not replace a form somebody has started typing into while initialization ran.
-  if(!document.activeElement?.matches('input,textarea,select'))render();checkNudge();
+  if(!document.activeElement?.matches('input,textarea,select'))render();
 });

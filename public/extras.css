@@ -45,3 +45,7 @@
 .pet-nameplate .nameplate-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-left:auto}
 .group-entry-slot:not(:empty){margin-top:12px}.group-entry{width:100%}
 .shop-entry{gap:8px}.shop-entry svg{width:18px;height:18px;flex:none}
+.tonight-card{margin-bottom:22px}.tonight-label{display:block;color:var(--muted);font-size:12px}
+.tonight-time{margin:4px 0 10px;font-size:46px;font-weight:700;line-height:1.1;letter-spacing:.02em;color:var(--gold);font-variant-numeric:tabular-nums}
+.tonight-more{margin-top:12px}.tonight-more summary{cursor:pointer;color:var(--muted);font-size:13px}.tonight-more ul{margin:10px 0 0;padding-left:20px}
+.tonight-card .form-actions{align-items:center;margin-top:14px}.tonight-card .form-actions small{color:var(--faint);font-size:12px}

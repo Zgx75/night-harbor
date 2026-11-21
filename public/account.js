@@ -157,7 +157,7 @@ export function createProfileSync(account, { onSaved } = {}) {
     try { cache(); }
     catch {
       ({ snapshot, pending, generation } = previous);
-      show('此裝置無法暫存變更，請先匯出資料並檢查儲存空間。', true);
+      show('此裝置無法暫存變更，請檢查儲存空間。', true);
       return false;
     }
     if (conflict) { showConflict(); return true; }

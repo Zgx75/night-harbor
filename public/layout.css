@@ -16,7 +16,6 @@
 .sidebar .connection{display:flex;justify-content:center;min-height:12px}
 .sidebar #connection-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .content-shell{margin-left:0;margin-right:calc(var(--rail-width) + env(safe-area-inset-right));width:calc(100% - var(--rail-width) - env(safe-area-inset-right));min-width:0;padding:env(safe-area-inset-top) 36px 0 max(36px,env(safe-area-inset-left))}
-.nudge{right:calc(var(--rail-width) + env(safe-area-inset-right) + 28px)}
 .toast{left:calc((100% - var(--rail-width) - env(safe-area-inset-right))/2)}
 .topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:60px}
 .topbar-left{grid-column:1;display:flex;align-items:center;justify-self:start}
@@ -90,14 +89,11 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   .install-banner>div{flex-basis:calc(100% - 58px)}
   .install-banner>.button{margin-left:53px}
   .install-banner>.install-dismiss{margin-left:auto}
-  .nudge{right:calc(var(--rail-width) + env(safe-area-inset-right) + 12px);bottom:calc(12px + env(safe-area-inset-bottom));width:calc(100vw - var(--rail-width) - env(safe-area-inset-right) - 24px);padding:19px}
-  .nudge-actions{flex-wrap:wrap;gap:10px}
   .toast{left:calc((100% - var(--rail-width) - env(safe-area-inset-right))/2);bottom:calc(18px + env(safe-area-inset-bottom));width:max-content;max-width:calc(100vw - var(--rail-width) - env(safe-area-inset-right) - 24px);padding:12px 15px}
   .footer{padding-bottom:24px}
 }
 @media(max-width:600px){
   .form-grid{grid-template-columns:minmax(0,1fr)}
-  .plan-summary{grid-template-columns:minmax(0,1fr)}
   .page-heading h1{font-size:25px}
   .hero{grid-template-columns:minmax(0,1fr)}
   .hero-copy{padding:25px 20px}
