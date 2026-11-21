@@ -187,6 +187,25 @@ export function createExtras(ctx) {
     }
   }
   setInterval(refreshCare,60000);
+  // The room shows the time of day, faintly, on a seven-segment display drawn as shapes (no font file is needed,
+  // and it scales with the room). The colon blinks once a second from CSS. It only reads the clock; nothing counts down.
+  const clockText=()=>{const d=new Date();return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
+  const SEGMENTS={
+    a:'7,5 12,0 44,0 49,5 44,10 12,10', g:'7,50 12,45 44,45 49,50 44,55 12,55', d:'7,95 12,90 44,90 49,95 44,100 12,100',
+    f:'5,7 10,12 10,43 5,48 0,43 0,12', e:'5,52 10,57 10,88 5,93 0,88 0,57',
+    b:'51,7 56,12 56,43 51,48 46,43 46,12', c:'51,52 56,57 56,88 51,93 46,88 46,57'
+  };
+  const LIT={0:'abcdef',1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgedc',7:'abc',8:'abcdefg',9:'abcdfg'};
+  function clockSVG(time) {
+    const [h1,h2,,m1,m2]=time;
+    const digit=(n,x)=>`<g transform="translate(${x} 0)">${Object.entries(SEGMENTS).map(([key,points])=>`<polygon class="seg ${LIT[n].includes(key)?'on':'off'}" points="${points}"/>`).join('')}</g>`;
+    return `<svg viewBox="0 0 292 100" aria-hidden="true" focusable="false">${digit(h1,0)}${digit(h2,70)}<g class="clock-colon"><circle cx="146" cy="30" r="6"/><circle cx="146" cy="70" r="6"/></g>${digit(m1,166)}${digit(m2,236)}</svg>`;
+  }
+  function refreshClock() {
+    const el=$('.room-clock'),time=clockText();
+    if(el&&el.dataset.time!==time){el.dataset.time=time;el.innerHTML=clockSVG(time);}
+  }
+  setInterval(refreshClock,1000);
   // A group page needs the group first: say so while it loads, or when there is no group.
   function groupMissingHTML() {
     return `<div class="page-heading"><div><h1>共養夥伴</h1></div></div>${groupRoom?.ready()?'<section class="panel"><p>你目前沒有共養小組。</p><div class="form-actions"><a class="button secondary small" href="#social">到好友頁建立或加入</a></div></section>':'<p class="notice">正在讀取共養夥伴…</p>'}`;
@@ -215,7 +234,7 @@ export function createExtras(ctx) {
     const actions=state.decorating?'':`<span class="nameplate-actions"><a class="button small shop-entry" href="${shopHash()}">${icon('shop')}商店</a><button class="button secondary small decorate-open" type="button" id="decorate-start">佈置房間</button></span>`;
     const nameplate=`<div class="pet-nameplate"><h2>${canRename()?nameButton(pet.name):esc(pet.name)}</h2><span class="chip gold"><span id="level-text">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span><progress id="growth-bar" class="growth-bar" max="${POINTS_PER_LEVEL}" value="${growthPoints(e)%POINTS_PER_LEVEL}" aria-label="距離下一級的成長進度 ${growthPoints(e)%POINTS_PER_LEVEL} / ${POINTS_PER_LEVEL}"></progress></span>${actions}</div>`;
     const bubble=!inGroup()&&todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:'';
-    const room=`<section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${state.decorating?'':`${bubble}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>`;
+    const room=`<section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div><div class="room-clock" aria-hidden="true" data-time="${clockText()}">${clockSVG(clockText())}</div>${furniture()}${state.decorating?'':`${bubble}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button>`}<span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>`;
     // Under the room: my room has the way to the group's room, and the group's room has the way back.
     const entry=inGroup()?(state.decorating?'':'<div class="group-entry-slot"><a class="button secondary group-entry" href="#pet">← 我的房間</a></div>'):`<div id="group-entry" class="group-entry-slot">${groupEntryHTML()}</div>`;
     const care=`<div class="pet-care"><div><span class="care-label">${inGroup()?'和大家相處的滿足感':'和你相處的滿足感'}</span><progress id="mood-bar" max="100" value="${mood}" aria-label="滿足感 ${mood} / 100"></progress><small id="mood-note">${moodNote(mood)}</small></div><button class="button gold-button" id="feed-pet" ${!roomAfford(5)||mood>=100?'disabled':''}>🥕 餵牠吃點心 · 5 🪙</button></div>`;

@@ -49,3 +49,9 @@
 .tonight-time{margin:4px 0 10px;font-size:46px;font-weight:700;line-height:1.1;letter-spacing:.02em;color:var(--gold);font-variant-numeric:tabular-nums}
 .tonight-more{margin-top:12px}.tonight-more summary{cursor:pointer;color:var(--muted);font-size:13px}.tonight-more ul{margin:10px 0 0;padding-left:20px}
 .tonight-card .form-actions{align-items:center;margin-top:14px}.tonight-card .form-actions small{color:var(--faint);font-size:12px}
+.room-clock{position:absolute;left:50%;top:9%;z-index:1;width:30%;transform:translateX(-50%);color:var(--text);pointer-events:none;user-select:none}
+.room-clock svg{display:block;width:100%;height:auto;overflow:visible}
+.room-clock .seg{fill:currentColor}.room-clock .seg.off{opacity:.05}.room-clock .seg.on{opacity:.3}
+.room-clock .clock-colon circle{fill:currentColor}.room-clock .clock-colon{opacity:.3;animation:clock-blink 1s steps(1,end) infinite}
+@keyframes clock-blink{0%{opacity:.3}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.room-clock .clock-colon{animation:none}}
