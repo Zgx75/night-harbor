@@ -1,3 +1,4 @@
+import { isTime, nightMinutes } from './records.js';
 const $ = selector => document.querySelector(selector);
 const LEGACY = 'night-harbor-v1';
 const cacheKey = id => `night-harbor-account-${id}`;
@@ -46,23 +47,33 @@ export async function openAccount() {
     $('#auth-register').setAttribute('aria-selected', String(register));
     $('#auth-name-row').hidden = !register;
     $('#auth-confirm-row').hidden = !register;
+    $('#auth-setup-row').hidden = !register;
     $('#auth-name').required = false;
     $('#auth-confirm').required = register;
+    for (const id of ['#auth-current-bedtime', '#auth-target-bedtime', '#auth-wake-time']) $(id).required = register;
     $('#auth-password').autocomplete = register ? 'new-password' : 'current-password';
     $('#auth-submit').textContent = register ? '註冊並開始' : '登入夜泊';
     $('#auth-error').textContent = '';
     $('#auth-confirm').value = '';
   }
-  async function enter(user) {
+  async function enter(user, setup) {
     let result = await accountRequest('/api/profile');
     result = await legacyProfile(user, result);
+    if (setup) {
+      // The three routine times asked for at sign-up become this account's settings.
+      const base = result.profile && typeof result.profile === 'object' ? result.profile : {};
+      const merged = { ...base, settings: { ...(base.settings || {}), ...setup } };
+      try { result = await accountRequest('/api/profile', { profile: merged, revision: result.revision }); }
+      catch {
+        // Keep the answers on this device so the normal sync retries them; they can also be edited in Settings.
+        try { localStorage.setItem(cacheKey(user.id), JSON.stringify({ profile: merged, revision: result.revision, pending: true })); } catch { /* Settings can be filled in later. */ }
+      }
+    }
     const cached = readCache(cacheKey(user.id));
     const pending = cached?.pending === true && cached.profile && Number.isSafeInteger(cached.revision);
     const account = { user, profile: pending ? cached.profile : result.profile, revision: pending ? cached.revision : result.revision, pending, conflict: pending && cached.revision !== result.revision };
     $('#auth-password').value = '';
     $('#auth-confirm').value = '';
-    $('#account-name').textContent = user.displayName;
-    $('#account-name').title = `帳號：${user.username}`;
     $('#account-tools').hidden = false;
     document.body.dataset.auth = 'ready';
     $('#app-shell').hidden = false;
@@ -78,9 +89,15 @@ export async function openAccount() {
     const password = $('#auth-password').value;
     if (mode === 'register' && password !== $('#auth-confirm').value) { $('#auth-error').textContent = '兩次輸入的密碼不一致。'; return; }
     const displayName = $('#auth-name').value.trim() || username;
+    let setup;
+    if (mode === 'register') {
+      setup = { currentBedtime: $('#auth-current-bedtime').value, targetBedtime: $('#auth-target-bedtime').value, wakeTime: $('#auth-wake-time').value };
+      if (!Object.values(setup).every(isTime)) { $('#auth-error').textContent = '請填寫三個作息時間。'; return; }
+      if ([setup.currentBedtime, setup.targetBedtime].some(time => nightMinutes(time) < 1080 || nightMinutes(time) > 1800)) { $('#auth-error').textContent = '上床時間請填晚間 18:00 到隔天 06:00。'; return; }
+    }
     setBusy(true);
     $('#auth-error').textContent = '';
-    try { const result = await accountRequest(`/api/auth/${mode}`, { username, password, displayName }); await enter(result.user); }
+    try { const result = await accountRequest(`/api/auth/${mode}`, { username, password, displayName }); await enter(result.user, setup); }
     catch (error) { $('#auth-error').textContent = error.message; }
     finally { setBusy(false); }
   });
@@ -106,6 +123,8 @@ export function createProfileSync(account, { onSaved } = {}) {
   const status = $('#sync-label');
   function show(message, problem = false) {
     status.textContent = message;
+    // The bar only appears when something needs attention; normal saving stays out of the way.
+    $('#account-sync').hidden = !problem;
     $('#account-sync').classList.toggle('sync-problem', problem);
     $('#sync-retry').hidden = !problem || conflict || expired;
     $('#sync-backup').hidden = !conflict && !expired;
@@ -177,8 +196,9 @@ export function createProfileSync(account, { onSaved } = {}) {
     if (pending && !window.confirm('讀取帳號最新資料會放棄這台裝置尚未同步的變更。需要保留時，請先按「下載此裝置備份」。確定重新讀取？')) return;
     closing = true; localStorage.removeItem(key); location.reload();
   });
-  $('#logout-account').addEventListener('click', async () => {
-    const button = $('#logout-account'); button.disabled = true;
+  // Sign-out lives on the user page now; the page passes its own button so it can be disabled meanwhile.
+  async function logout(button) {
+    if (button) button.disabled = true;
     try {
       const saved = await flush();
       if (!saved && pending && !window.confirm('還有尚未同步的資料，會暫存在這台裝置，下次登入同一帳號時再處理。仍要登出？')) return;
@@ -186,15 +206,14 @@ export function createProfileSync(account, { onSaved } = {}) {
       await accountRequest('/api/auth/logout', {});
       location.reload();
     } catch (error) { closing = false; show(error.message, true); }
-    finally { button.disabled = false; }
-  });
+    finally { if (button) button.disabled = false; }
+  }
   window.addEventListener('online', flush);
   window.addEventListener('pagehide', () => { if (pending) { try { cache(); } catch { /* Already cached on each change. */ } } });
   window.addEventListener('beforeunload', event => { if (pending && !closing) { event.preventDefault(); event.returnValue = ''; } });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && pending) flush(); });
-  $('#account-sync').hidden = false;
   if (conflict) showConflict();
   else if (pending) timer = setTimeout(flush, 0);
   else show('資料已同步');
-  return { save, flush, sessionExpired() { expired = true; show('登入已到期，請重新登入。尚未同步的變更仍保留在此裝置。', true); } };
+  return { save, flush, logout, sessionExpired() { expired = true; show('登入已到期，請重新登入。尚未同步的變更仍保留在此裝置。', true); } };
 }
