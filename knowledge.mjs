@@ -9,7 +9,8 @@ export const knowledge = [
   { id: 'K7', title: '晨間與晚間運動的比較', publisher: 'Souabni 等 · Sleep Medicine Reviews（2026）', tags: ['運動', '健身', '重訓', '晨間', '夜間', '恢復', 'exercise', 'workout'], url: 'https://pubmed.ncbi.nlm.nih.gov/42632303/', text: '這篇系統性回顧未顯示晨間運動對多數睡眠結果有一致的整體優勢。晚間運動與睡眠連續性的差異可能受強度、距離就寢時間及個人因素影響，也有小型研究效應等限制，不宜一概禁止晚上運動。' }
 ,
   { id:'K8',title:'睡前螢幕與自我睡眠評分',publisher:'CDC',tags:['螢幕','手機','滑','screen','評分','品質'],url:'https://www.cdc.gov/sleep/about/index.html',text:'CDC 建議睡前至少三十分鐘關閉電子裝置。睡眠品質也包括是否連續、醒來後是否有恢復感。自評分數可幫助觀察變化，不能當成疾病診斷；沒有填寫不代表睡得差。' },
-  { id:'K9',title:'午睡與夜間入睡',publisher:'NIH · NHLBI',tags:['午睡','打盹','小睡','nap'],url:'https://www.nhlbi.nih.gov/health/sleep-deprivation/healthy-sleep-habits',text:'午睡可能增加日間清醒度，但若夜間難入睡，NHLBI 建議限制午睡或安排在下午較早時段，成人午睡不超過二十分鐘。需考量個人情況，不能只憑一次午睡認定夜間睡不著的原因。' }
+  { id:'K9',title:'午睡與夜間入睡',publisher:'NIH · NHLBI',tags:['午睡','打盹','小睡','nap'],url:'https://www.nhlbi.nih.gov/health/sleep-deprivation/healthy-sleep-habits',text:'午睡可能增加日間清醒度，但若夜間難入睡，NHLBI 建議限制午睡或安排在下午較早時段，成人午睡不超過二十分鐘。需考量個人情況，不能只憑一次午睡認定夜間睡不著的原因。' },
+  { id:'K10',title:'睡前飲酒',publisher:'NIH · NHLBI',tags:['酒','飲酒','喝酒','小酌','啤酒','alcohol'],url:'https://www.nhlbi.nih.gov/health/sleep-deprivation/healthy-sleep-habits',text:'NHLBI 的健康睡眠習慣建議中，包括避免在睡前喝含酒精飲料。這是一般生活建議，不能據此判斷某一晚睡不好的原因，也不提供飲酒量的建議。' }
 ].map(item => ({ ...item, reviewedAt: '2026-10-15' }));
 function tokens(value) {
   const s = value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
