@@ -1,6 +1,6 @@
 import { lineText, weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
 import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
-import { PETS,FURNITURE,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
+import { PETS,FURNITURE,SLOT_LABELS,itemSpot,clampSpot,FLOOR_RATIO,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
   const {state,api,persist,render,toast,esc,icon,localDate,userId}=ctx;
@@ -58,16 +58,73 @@ export function createExtras(ctx) {
     if(seen!==stage){try{localStorage.setItem(key,String(stage));}catch{/* Remembering is optional. */}}
     return stage;
   }
+  // Placing furniture: drag a piece, or focus it and use the arrow keys. Nothing is saved until "完成".
+  // "我的倉庫": every piece the player owns. Pieces in the room show "收起"; the others are faded and show "放入".
+  function warehouseHTML() {
+    const owned=FURNITURE.filter(f=>state.economy.inventory.includes(f.id));
+    const inRoom=owned.filter(f=>state.placedDraft.includes(f.id)).length;
+    const cards=owned.map(f=>{
+      const here=state.placedDraft.includes(f.id);
+      return `<article class="warehouse-item ${here?'is-in':'is-out'}"><span class="warehouse-emoji" aria-hidden="true">${f.emoji}</span><h3>${f.name}</h3><small>${here?'在房間裡':'在倉庫裡'}</small><button class="button ${here?'secondary':''} small full-width" type="button" data-warehouse="${f.id}">${here?'收起':'放入'}</button></article>`;
+    }).join('');
+    return `<section class="panel warehouse"><div class="section-heading"><h2>我的倉庫</h2><small>房間裡 ${inRoom} 件 · 共 ${owned.length} 件</small></div>${owned.length?`<div class="warehouse-grid">${cards}</div>`:'<p>倉庫還是空的。<a class="text-button" href="#shop">去商店逛逛 →</a></p>'}</section>`;
+  }
+  function roomTools() {
+    if(state.decorating)return `<div class="room-tools"><p>拖曳物品來擺放，也可以點選物品後用方向鍵微調（加按 Shift 移動較遠）。地面的家具只能放在地板上。</p><button class="button small" type="button" id="decorate-save">完成</button><button class="button secondary small" type="button" id="decorate-reset">還原預設位置</button><button class="text-button" type="button" id="decorate-cancel">取消</button></div>${warehouseHTML()}`;
+    return `<div class="room-tools"><button class="button secondary small" type="button" id="decorate-start">佈置房間</button>${state.economy.inventory.length?'':'<p>先到商店帶一件家具回家，就能開始佈置。</p>'}</div>`;
+  }
+  // The page's security policy forbids inline style attributes, so positions are applied from script.
+  function placeItems() {
+    const room=$('.pet-room');if(!room)return;
+    room.style.setProperty('--floor',FLOOR_RATIO*100+'%');
+    for(const el of $$('.room-item[data-x]')){el.style.left=(el.dataset.x*100)+'%';el.style.top=(el.dataset.y*100)+'%';}
+  }
+  function bindDecorate() {
+    const room=$('.pet-room');if(!room||!state.decorating)return;
+    const draft=state.layoutDraft;
+    for(const el of $$('[data-furniture]')) {
+      const f=FURNITURE.find(x=>x.id===el.dataset.furniture);
+      const put=(x,y)=>{
+        const box=room.getBoundingClientRect(),c=clampSpot(f.slot,x,y,el.offsetWidth/2/box.width,el.offsetHeight/2/box.height);
+        draft[f.id]={x:Math.round(c.x*1000)/1000,y:Math.round(c.y*1000)/1000};
+        el.style.left=(c.x*100)+'%';el.style.top=(c.y*100)+'%';
+      };
+      let grab=null;
+      el.addEventListener('pointerdown',event=>{
+        if(event.button>0)return;
+        event.preventDefault();el.setPointerCapture(event.pointerId);el.focus({preventScroll:true});
+        const b=el.getBoundingClientRect();grab={dx:event.clientX-(b.left+b.width/2),dy:event.clientY-(b.top+b.height/2)};
+        el.classList.add('is-dragging');
+      });
+      el.addEventListener('pointermove',event=>{
+        if(!grab)return;
+        const box=room.getBoundingClientRect();put((event.clientX-grab.dx-box.left)/box.width,(event.clientY-grab.dy-box.top)/box.height);
+      });
+      const release=()=>{grab=null;el.classList.remove('is-dragging');};
+      el.addEventListener('pointerup',release);el.addEventListener('pointercancel',release);
+      el.addEventListener('keydown',event=>{
+        const step=event.shiftKey?0.06:0.02,move={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[event.key];
+        if(!move)return;
+        event.preventDefault();const now=itemSpot(f,draft);put(now.x+move[0],now.y+move[1]);
+      });
+    }
+  }
   function petHTML() {
     const e=state.economy,pet=e.pet,p=PETS.find(p=>p.id===pet?.id),pending=pendingRewards(),stage=pet?currentStage(pet):1;
-    const furniture=slot=>{const f=FURNITURE.find(f=>f.id===e.equipped[slot]);return f?`<span class="room-item room-${slot}" role="img" aria-label="${esc(f.name)}">${f.emoji}</span>`:'';};
-    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${esc(pet.name)}</h2><span class="chip gold">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span></div><section class="pet-room" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture('bed')}${furniture('plant')}${furniture('lamp')}${furniture('toy')}${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button><span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section><div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress max="100" value="${e.affection}" aria-label="滿足感 ${e.affection} / 100"></progress><small>${e.affection} / 100 · 不會因為失眠扣分</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||e.affection>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}
+    const layout=state.decorating?state.layoutDraft:e.layout,placed=state.decorating?state.placedDraft:e.placed;
+    const furniture=()=>FURNITURE.filter(f=>placed.includes(f.id)).map(f=>{
+      const spot=itemSpot(f,layout),place=`data-x="${spot.x}" data-y="${spot.y}"`;
+      return state.decorating
+        ?`<span class="room-item room-${f.slot} is-decorating" role="button" tabindex="0" data-furniture="${f.id}" ${place} aria-label="${esc(f.name)}，拖曳或用方向鍵移動">${f.emoji}</span>`
+        :`<span class="room-item room-${f.slot}" role="img" ${place} aria-label="${esc(f.name)}">${f.emoji}</span>`;
+    }).join('');
+    return `<div class="page-heading"><div><h1>我的小夥伴</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>想和誰一起開始？</h2><p>選一個你喜歡的 emoji，小夥伴不會因為你晚睡就離開。</p>${adoptionHTML()}</section>`:`<div class="pet-nameplate"><h2>${esc(pet.name)}</h2><span class="chip gold">Lv.${level(e)} · 一起完成 ${e.credits.length} 晚約定</span></div><section class="pet-room${state.decorating?' is-decorating':''}" aria-label="${esc(pet.name)}的房間"><div class="room-window" aria-hidden="true"><span>☾</span><i>✧</i></div><div class="room-floor" aria-hidden="true"></div><div class="room-rug" aria-hidden="true"></div>${furniture()}${todayLine()?`<p class="pet-bubble" role="status"><span class="visually-hidden">${esc(pet.name)}說：</span>${esc(todayLine())}</p>`:''}<button type="button" class="room-pet" data-stage="${stage}" aria-label="${esc(p.name)} ${esc(pet.name)}，點一下會抖一抖"><span class="pet-body">${p.emoji}</span></button><span class="room-spark room-spark-one" aria-hidden="true">✧</span><span class="room-spark room-spark-two" aria-hidden="true">·</span></section>${roomTools()}<div class="pet-care"><div><span class="care-label">和你相處的滿足感</span><progress max="100" value="${e.affection}" aria-label="滿足感 ${e.affection} / 100"></progress><small>${e.affection} / 100 · 不會因為失眠扣分</small></div><button class="button gold-button" id="feed-pet" ${!canAfford(e,5)||e.affection>=100?'disabled':''}>🥕 餵牠吃點心 · 5 枚</button></div>`}
     <section class="reward-note"><div><span class="reward-icon">🪙</span></div><div><h2>按時上床，一晚存下 20 枚金幣</h2><p>以前一晚事先保存的就寢目標為準，最晚可晚 15 分鐘。早晨填寫「上床準備睡覺」時間後自動領取；同一晚只領一次。</p><p class="notice">按時上床但睡不著，仍然有獎勵。不扣金幣、不讓寵物受罰。依自行回報並保存至帳號，未連接螢幕時間或穿戴裝置。</p>${pet?`<button class="button secondary small" id="claim-coins" ${pending.total?'':'disabled'}>${pending.total?`領取尚未入帳的 ${pending.total} 枚`:'目前沒有待領金幣'}</button>`:''}<a class="text-button reward-link" href="#shop">去商店替房間添點東西 →</a><a class="text-button reward-link" href="#settings">先設定今晚作息 →</a><a class="text-button reward-link" href="#logs">早晨回報昨晚 →</a></div></section>
     ${pet?`<section class="panel"><h2>存下的每一個小約定</h2>${e.credits.length?`<div class="table-wrap"><table><thead><tr><th>夜晚日期</th><th>原定目標</th><th>回報上床</th><th>入帳</th></tr></thead><tbody>${[...e.credits].reverse().slice(0,7).map(c=>`<tr><td>${when(c.night)}</td><td>${esc(c.target)}</td><td>${esc(c.bedAt)}</td><td class="gold-text">+20 枚</td></tr>`).join('')}</tbody></table></div>`:'<p>先替今晚設定目標，明早回報後就能存下第一筆金幣。</p>'}<details><summary>更換 emoji 或名字</summary>${adoptionHTML()}</details></section>`:''}`;
   }
   function shopHTML() {
     const e=state.economy,pet=e.pet;
-    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.equipped[f.slot]===f.id;return `<article class="shop-card"><div class="furniture-emoji" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div><p class="notice">${UNLIMITED_COINS?'測試中：金幣暫時無限，購買與餵食都不扣金幣。':'金幣來自按時上床的約定，餘額不足時無法購買；已收藏的家具不會重複收費。'}</p><a class="text-button" href="#pet">回到小房間看看 →</a>`}`;
+    return `<div class="page-heading"><div><h1>商店</h1></div><span class="coin-wallet" aria-label="目前 ${UNLIMITED_COINS?'無限':balance(e)} 枚金幣">🪙 ${coinText(e)}</span></div>${!pet?`<section class="panel"><h2>先領養一位小夥伴</h2><p>有了小夥伴，才能替牠布置房間。</p><div class="form-actions"><a class="button secondary small" href="#pet">去選一位夥伴</a></div></section>`:`<div class="section-heading"><h2>替小房間添一點喜歡的東西</h2><small>購買後可擺放或收起</small></div><div class="shop-grid">${FURNITURE.map(f=>{const owned=e.inventory.includes(f.id),equipped=e.placed.includes(f.id);return `<article class="shop-card"><div class="furniture-emoji" aria-hidden="true">${f.emoji}</div><h3>${f.name}</h3><small class="shop-slot">擺在${SLOT_LABELS[f.slot]}</small><p>${owned?'已收藏':f.cost+' 枚金幣'}</p><button class="button ${owned?'secondary':''} small full-width" data-shop="${f.id}" data-shop-action="${owned?'equip':'buy'}" ${!owned&&!canAfford(e,f.cost)?'disabled':''}>${owned?(equipped?'已擺放 · 收起':'擺進房間'):'帶回家'}</button></article>`;}).join('')}</div><p class="notice">${UNLIMITED_COINS?'測試中：金幣暫時無限，購買與餵食都不扣金幣。':'金幣來自按時上床的約定，餘額不足時無法購買；已收藏的家具不會重複收費。'}</p><a class="text-button" href="#pet">回到小房間看看 →</a>`}`;
   }
   const todayLine=()=>state.petFeedback?.date===localDate()&&state.economy.pet?lineText(state.petFeedback.id):'';
   function sourceLinks(ids) {return ids.map(id=>state.knowledge.find(s=>s.id===id)).filter(Boolean).map(s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`).join('');}
@@ -190,9 +247,27 @@ export function createExtras(ctx) {
     }
   }
   function bind(page) {
-    if(page!=='pet')stopWander();
+    if(page!=='pet'){stopWander();state.decorating=false;}
     if(page==='pet') {
-      startWander();
+      placeItems();
+      if(state.decorating){stopWander();bindDecorate();}else startWander();
+      $('#decorate-start')?.addEventListener('click',()=>{
+        if(!state.economy.inventory.length){toast('先到商店帶一件家具回家，就能開始佈置。');return;}
+        state.decorating=true;state.layoutDraft={...state.economy.layout};state.placedDraft=[...state.economy.placed];render();
+      });
+      $('#decorate-cancel')?.addEventListener('click',()=>{state.decorating=false;state.layoutDraft=null;state.placedDraft=null;render();});
+      $('#decorate-reset')?.addEventListener('click',()=>{state.layoutDraft={};render();});
+      // Putting a piece in or taking it out only changes the draft; "完成" keeps it.
+      $$('[data-warehouse]').forEach(el=>el.addEventListener('click',()=>{
+        const id=el.dataset.warehouse,list=state.placedDraft,top=window.scrollY;
+        state.placedDraft=list.includes(id)?list.filter(x=>x!==id):[...list,id];
+        render();window.scrollTo(0,top);
+      }));
+      $('#decorate-save')?.addEventListener('click',()=>{
+        const old=state.economy;state.economy=normaliseEconomy({...old,placed:state.placedDraft,layout:state.layoutDraft});
+        if(!persist()){state.economy=old;return;}
+        state.decorating=false;state.layoutDraft=null;state.placedDraft=null;render();toast('房間的佈置已保存。');
+      });
       $$('[data-pet-choice]').forEach(el=>el.addEventListener('click',()=>{state.petNameDraft=$('#pet-name')?.value||'';state.petDraft=el.dataset.petChoice;render();}));
       $('#pet-form')?.addEventListener('submit',e=>{e.preventDefault();state.petNameDraft=$('#pet-name').value;applyPet({type:'adopt',id:state.petDraft||state.economy.pet?.id||'cat',name:state.petNameDraft},'小夥伴準備好陪你一起開始了。');});
       $('#feed-pet')?.addEventListener('click',()=>applyPet({type:'feed'},'小夥伴開心地吃了點心。'));

@@ -2,16 +2,49 @@
 export const PETS = [
   {id:'cat',emoji:'🐱',name:'小貓'}, {id:'dog',emoji:'🐶',name:'小狗'},
   {id:'rabbit',emoji:'🐰',name:'小兔'}, {id:'fox',emoji:'🦊',name:'小狐狸'},
-  {id:'panda',emoji:'🐼',name:'小熊貓'}, {id:'owl',emoji:'🦉',name:'小貓頭鷹'}
+  {id:'panda',emoji:'🐼',name:'小熊貓'}, {id:'owl',emoji:'🦉',name:'小貓頭鷹'},
+  {id:'hamster',emoji:'🐹',name:'小倉鼠'}, {id:'bear',emoji:'🐻',name:'小熊'},
+  {id:'koala',emoji:'🐨',name:'無尾熊'}, {id:'tiger',emoji:'🐯',name:'小老虎'},
+  {id:'pig',emoji:'🐷',name:'小豬'}, {id:'frog',emoji:'🐸',name:'小青蛙'},
+  {id:'monkey',emoji:'🐵',name:'小猴子'}, {id:'penguin',emoji:'🐧',name:'小企鵝'},
+  {id:'chick',emoji:'🐤',name:'小雞'}, {id:'turtle',emoji:'🐢',name:'小烏龜'},
+  {id:'hedgehog',emoji:'🦔',name:'小刺蝟'}, {id:'lion',emoji:'🦁',name:'小獅子'}
 ];
+// Where each kind of furniture sits in the room. One item per place; buying another one there swaps it.
+export const SLOT_LABELS = {bed:'床位',plant:'右下角',lamp:'左下角',toy:'地板中間',wall:'牆上',ceiling:'天花板',side:'右側地板'};
 export const FURNITURE = [
-  {id:'cushion',name:'柔軟睡墊',emoji:'🛏️',cost:40,slot:'bed'},
-  {id:'plant',name:'窗邊小盆栽',emoji:'🪴',cost:60,slot:'plant'},
-  {id:'lamp',name:'暖暖小夜燈',emoji:'🏮',cost:80,slot:'lamp'},
-  {id:'books',name:'晚安故事書',emoji:'📚',cost:40,slot:'toy'},
-  {id:'ball',name:'滾滾小皮球',emoji:'🧶',cost:30,slot:'toy'},
-  {id:'tent',name:'星星小帳篷',emoji:'⛺',cost:120,slot:'bed'}
+  {id:'cushion',name:'柔軟睡墊',emoji:'🛏️',cost:40,slot:'bed',x:.5,y:.82},
+  {id:'tent',name:'星星小帳篷',emoji:'⛺',cost:120,slot:'bed',x:.26,y:.8},
+  {id:'sofa',name:'舒服小沙發',emoji:'🛋️',cost:100,slot:'bed',x:.74,y:.8},
+  {id:'plant',name:'窗邊小盆栽',emoji:'🪴',cost:60,slot:'plant',x:.88,y:.8},
+  {id:'cactus',name:'圓圓仙人掌',emoji:'🌵',cost:50,slot:'plant',x:.78,y:.9},
+  {id:'lamp',name:'暖暖小夜燈',emoji:'🏮',cost:80,slot:'lamp',x:.1,y:.72},
+  {id:'candle',name:'搖搖小蠟燭',emoji:'🕯️',cost:55,slot:'lamp',x:.2,y:.9},
+  {id:'books',name:'晚安故事書',emoji:'📚',cost:40,slot:'toy',x:.22,y:.93},
+  {id:'ball',name:'滾滾小皮球',emoji:'🧶',cost:30,slot:'toy',x:.33,y:.9},
+  {id:'teddy',name:'軟綿綿泰迪熊',emoji:'🧸',cost:90,slot:'toy',x:.62,y:.92},
+  {id:'palette',name:'彩繪小畫板',emoji:'🎨',cost:65,slot:'toy',x:.7,y:.93},
+  {id:'frame',name:'溫暖小畫框',emoji:'🖼️',cost:50,slot:'wall',x:.12,y:.2},
+  {id:'clock',name:'晚安小掛鐘',emoji:'🕰️',cost:70,slot:'wall',x:.3,y:.17},
+  {id:'balloon',name:'飄飄小氣球',emoji:'🎈',cost:45,slot:'ceiling',x:.5,y:.07},
+  {id:'carp',name:'小鯉魚旗',emoji:'🎏',cost:90,slot:'ceiling',x:.66,y:.1},
+  {id:'radio',name:'睡前小收音機',emoji:'📻',cost:80,slot:'side',x:.58,y:.7},
+  {id:'basket',name:'毛毯小籃子',emoji:'🧺',cost:45,slot:'side',x:.06,y:.9},
+  {id:'piano',name:'迷你小鋼琴',emoji:'🎹',cost:150,slot:'side',x:.88,y:.64}
 ];
+// The floor takes the lower part of the room. Pieces that stand on the floor can never be moved above it;
+// wall and ceiling pieces can go anywhere in the room. Positions are fractions of the room (0-1, from the top left).
+export const FLOOR_RATIO=0.44, FLOOR_TOP=1-FLOOR_RATIO;
+export const FLOOR_SLOTS=['bed','plant','lamp','toy','side'];
+const round3=n=>Math.round(n*1000)/1000;
+// halfW and halfH are half of the piece's size as fractions of the room, so a piece never leaves the room.
+export function clampSpot(slot,x,y,halfW=0,halfH=0) {
+  const cx=Math.min(1-halfW,Math.max(halfW,Number(x)));
+  const maxY=1-halfH,minY=Math.min(maxY,FLOOR_SLOTS.includes(slot)?FLOOR_TOP+0.02:halfH);
+  return {x:cx,y:Math.min(maxY,Math.max(minY,Number(y)))};
+}
+// Every piece has its own starting spot, so several pieces of one kind never start on top of each other.
+export const itemSpot=(furniture,layout={})=>layout[furniture.id]||{x:furniture.x,y:furniture.y};
 export const addDays = (s,n) => new Date(Date.parse(s)+n*86400000).toISOString().slice(0,10);
 const timeOK = s => typeof s==='string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 const min = s => Number(s.slice(0,2))*60+Number(s.slice(3));
@@ -29,7 +62,7 @@ export function snapshotTargets(existing,points,now=Date.now()) {
   return Object.fromEntries(Object.entries(targets).sort(([a],[b])=>a.localeCompare(b)).slice(-90));
 }
 export function formatClock(m) { if(m==null)return '—';m=Math.round(m);return `${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
-export function createEconomy() {return {pet:null,credits:[],bonusCredits:[],transactions:[],inventory:[],equipped:{},affection:50};}
+export function createEconomy() {return {pet:null,credits:[],bonusCredits:[],transactions:[],inventory:[],placed:[],layout:{},affection:50};}
 export function normaliseEconomy(value) {
   const e=createEconomy();if(!value||typeof value!=='object')return e;
   if(value.pet&&PETS.some(p=>p.id===value.pet.id))e.pet={id:value.pet.id,name:String(value.pet.name||'小夥伴').slice(0,16)};
@@ -39,7 +72,15 @@ export function normaliseEconomy(value) {
   e.bonusCredits=(Array.isArray(value.bonusCredits)?value.bonusCredits:[]).filter(c=>c&&typeof c.id==='string'&&!bonusSeen.has(c.id)&&bonusSeen.add(c.id)&&['improvement','streak','group'].includes(c.type)&&Number.isSafeInteger(c.amount)&&c.amount>=0&&c.amount<=10000000).map(c=>({...c}));
   e.transactions=(Array.isArray(value.transactions)?value.transactions:[]).filter(t=>t&&Number.isInteger(t.cost)&&t.cost>0);
   e.inventory=[...new Set((Array.isArray(value.inventory)?value.inventory:[]).filter(id=>FURNITURE.some(f=>f.id===id)))];
-  for(const f of FURNITURE)if(value.equipped?.[f.slot]===f.id&&e.inventory.includes(f.id))e.equipped[f.slot]=f.id;
+  // The pieces standing in the room, any number of each kind. Older accounts stored one piece per spot; those carry over.
+  const standing=Array.isArray(value.placed)?value.placed:Object.values(value.equipped&&typeof value.equipped==='object'?value.equipped:{});
+  e.placed=[...new Set(standing.filter(id=>e.inventory.includes(id)))];
+  // Where each owned piece was placed; anything unknown, out of range or in the wrong area is pulled back.
+  for(const f of FURNITURE) {
+    const spot=value.layout?.[f.id];
+    if(!e.inventory.includes(f.id)||!spot||!Number.isFinite(spot.x)||!Number.isFinite(spot.y))continue;
+    const c=clampSpot(f.slot,spot.x,spot.y);e.layout[f.id]={x:round3(c.x),y:round3(c.y)};
+  }
   e.affection=Number.isFinite(value.affection)?Math.max(0,Math.min(100,value.affection)):50;
   return e;
 }
@@ -82,11 +123,11 @@ export function petTransaction(economy,event,now=Date.now()) {
   if(event.type==='buy') {
     if(e.inventory.includes(f.id))throw new Error('這件家具已經在你的收藏裡了。');
     if(balance(e)<f.cost)throw new Error('金幣還不夠，可以先慢慢存。');
-    e.transactions.push({type:'furniture',id:f.id,cost:f.cost,at:new Date(now).toISOString()});e.inventory.push(f.id);e.equipped[f.slot]=f.id;return e;
+    e.transactions.push({type:'furniture',id:f.id,cost:f.cost,at:new Date(now).toISOString()});e.inventory.push(f.id);e.placed.push(f.id);return e;
   }
   if(event.type==='equip') {
     if(!e.inventory.includes(f.id))throw new Error('先把這件家具帶回家。');
-    if(e.equipped[f.slot]===f.id)delete e.equipped[f.slot];else e.equipped[f.slot]=f.id;return e;
+    if(e.placed.includes(f.id))e.placed=e.placed.filter(id=>id!==f.id);else e.placed.push(f.id);return e;
   }
   throw new Error('無法完成這個操作。');
 }
