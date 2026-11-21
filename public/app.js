@@ -77,7 +77,14 @@ async function api(path, body) {
 function view() { const name = location.hash.slice(1); return ['pet','shop','reports','logs','settings','social','user','onboarding','factors'].includes(name) ? name : 'pet'; }
 function heading(title, extra='') { return `<div class="page-heading"><div><h1>${title}</h1></div>${extra}</div>`; }
 const extras = createExtras({state,api,persist,render,toast,esc,icon,localDate,updatePlan,userId:account.user.id,confirmAction});
-const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user});
+// A dot on the friends tab while an invitation is waiting for an answer.
+const socialLink=$('.nav-link[data-nav=social]'),socialLabel=socialLink?.getAttribute('aria-label')||'';
+function setSocialBadge(count) {
+  if(!socialLink)return;
+  socialLink.classList.toggle('has-badge',count>0);
+  socialLink.setAttribute('aria-label',count>0?`${socialLabel}（有 ${count} 則新通知）`:socialLabel);
+}
+const social = createSocial({state,api,flush:()=>profileSync.flush(),render,toast,esc,user:account.user,confirmAction,onBadge:setSocialBadge});
 const me = createMe({state,api,flush:()=>profileSync.flush(),render,toast,esc});
 const onboarding = createOnboarding({state,persist,render,toast,esc,icon,updatePlan});
 const factorSurvey = createFactorSurvey({state,persist,render,toast,esc,icon,localDate});
@@ -303,9 +310,11 @@ for(const [date,t] of Object.entries(state.targets))if(date>nightDate()&&t.sourc
 persist();
 if(onboarding.shouldStart())location.hash='onboarding';
 render();
-if(view()==='social')social.refresh();
+social.refresh({quiet:view()!=='social'});
 if(view()==='user')me.refresh();
-setInterval(()=>{if(view()==='social'&&document.visibilityState==='visible')social.refresh({quiet:true});},30000);
+let socialTick=0;
+// On the friends page every 30 seconds; elsewhere every 90 seconds, just to keep the tab's dot up to date.
+setInterval(()=>{if(document.visibilityState!=='visible')return;socialTick++;if(view()==='social'||socialTick%3===0)social.refresh({quiet:true});},30000);
 Promise.allSettled([api('/api/health'),api('/api/knowledge'),updatePlan()]).then(results=>{
   if(results[0].status==='fulfilled')state.health=results[0].value;
   if(results[1].status==='fulfilled')state.knowledge=results[1].value.sources;

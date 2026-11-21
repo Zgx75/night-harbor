@@ -105,3 +105,4 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
 }
 @media(max-height:600px){.sidebar .brand{margin-bottom:8px}.sidebar nav{gap:3px}.sidebar .nav-link[data-nav]{min-height:49px}.sidebar .sidebar-bottom{margin-top:8px}}
 @media(prefers-reduced-motion:reduce){.sidebar .nav-link[data-nav]{transition:none}}
+.sidebar .nav-link.has-badge::after{content:"";position:absolute;top:9px;right:calc(50% - 22px);width:9px;height:9px;border-radius:50%;background:#ff8fa3;box-shadow:0 0 0 2px var(--sidebar)}

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { AppError } from '../ai/ai.mjs';
 import { createEconomy, normaliseEconomy, petTransaction, addDays, nightInstant } from '../../public/progress.js';
-import { MILESTONES, rewardFacts, rewardSummary, taipeiDate, socialNight } from './rewards.mjs';
+import { MILESTONES, rewardFacts, rewardSummary, taipeiDate } from './rewards.mjs';
 
 const fail=(status,code,message)=>{throw new AppError(status,code,message);};
 const text=(value,max,label)=>{if(typeof value!=='string'||!value.trim()||value.trim().length>max)fail(400,'SOCIAL_INPUT',`${label}請填 1 到 ${max} 個字。`);return value.trim();};
@@ -20,7 +20,6 @@ export function createSocialStore({ db, now }) {
     CREATE TABLE IF NOT EXISTS group_rewards (group_id TEXT NOT NULL REFERENCES pet_groups(id), event_key TEXT NOT NULL, amount INTEGER NOT NULL, night TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(group_id,event_key));
     CREATE TABLE IF NOT EXISTS social_checkins (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), day TEXT NOT NULL, note TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(user_id,day));
     CREATE TABLE IF NOT EXISTS checkin_encouragements (checkin_id TEXT NOT NULL REFERENCES social_checkins(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(checkin_id,user_id));
-    CREATE TABLE IF NOT EXISTS goodnight_nudges (id TEXT PRIMARY KEY, sender TEXT NOT NULL REFERENCES users(id), receiver TEXT NOT NULL REFERENCES users(id), night TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER, UNIQUE(sender,receiver,night));
   `);
   const user=uid=>db.prepare('SELECT id,username,display_name AS displayName FROM users WHERE id=?').get(uid);
   const profile=uid=>JSON.parse(db.prepare('SELECT payload FROM profiles WHERE user_id=?').get(uid)?.payload||'{}');
@@ -29,7 +28,6 @@ export function createSocialStore({ db, now }) {
   const membership=uid=>db.prepare('SELECT g.* FROM pet_groups g JOIN group_members m ON m.group_id=g.id WHERE m.user_id=? AND m.left_at IS NULL AND g.closed_at IS NULL').get(uid);
   function transaction(fn) { db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;} }
   const friendRow=(a,b)=>db.prepare('SELECT * FROM friendships WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)').get(a,b,b,a);
-  function requireFriend(a,b){if(friendRow(a,b)?.state!=='accepted')fail(403,'FRIEND_REQUIRED','需要先成為好友。');}
   function groupFor(uid) {const group=membership(uid);if(!group)fail(403,'GROUP_REQUIRED','請先加入共養小組。');return group;}
   function visibleStatus(uid) {const p=pref(uid);return {shared:Boolean(p.share_status),status:p.share_status&&now()-p.status_at<18*3600000?p.status:'unknown',updatedAt:p.share_status?p.status_at:null};}
   function audience(uid) {
@@ -98,10 +96,14 @@ export function createSocialStore({ db, now }) {
   function dashboard(uid) {
     const mine=pref(uid),requests=db.prepare('SELECT * FROM friendships WHERE sender=? OR receiver=? ORDER BY created_at DESC').all(uid,uid);
     return {preferences:{shareStatus:Boolean(mine.share_status),shareLeaderboard:Boolean(mine.share_leaderboard)},status:visibleStatus(uid),
-      friends:requests.filter(f=>f.state==='accepted').map(f=>{const other=f.sender===uid?f.receiver:f.sender;return {...user(other),...visibleStatus(other)};}),
+      friends:requests.filter(f=>f.state==='accepted').map(f=>{
+        const other=f.sender===uid?f.receiver:f.sender,pet=profile(other).economy?.pet;
+        // A friend's companion (kind and name) is all that is shown of their profile besides what they chose to share.
+        return {...user(other),...visibleStatus(other),pet:pet&&typeof pet.id==='string'?{id:pet.id,name:String(pet.name||'').slice(0,16)}:null};
+      }),
       requests:requests.filter(f=>f.state==='pending').map(f=>({...user(f.sender===uid?f.receiver:f.sender),direction:f.sender===uid?'outgoing':'incoming'})),
       group:groupView(uid),wall:wall(uid),rewards:{...rewardSummary(profile(uid),now()),bonuses:profile(uid).economy?.bonusCredits||[],milestones:MILESTONES},
-      notifications:db.prepare('SELECT n.id,n.created_at AS createdAt,n.read_at AS readAt,u.display_name AS displayName,u.username FROM goodnight_nudges n JOIN users u ON u.id=n.sender WHERE n.receiver=? ORDER BY n.created_at DESC LIMIT 20').all(uid)};
+    };
   }
   function search(uid, query) {
     if(typeof query!=='string'||!/^[A-Za-z0-9_]{3,24}$/.test(query))fail(400,'SOCIAL_INPUT','請輸入至少 3 個帳號字元。');
@@ -161,11 +163,6 @@ export function createSocialStore({ db, now }) {
       } else if(operation==='status') {
         if(!['awake','sleeping','up'].includes(data.status))fail(400,'SOCIAL_INPUT','請選擇有效狀態。');
         db.prepare('INSERT INTO social_preferences(user_id,status,status_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET status=excluded.status,status_at=excluded.status_at').run(uid,data.status,now());
-      } else if(operation==='nudges') {
-        const target=id(data.userId);requireFriend(uid,target);
-        db.prepare('INSERT OR IGNORE INTO goodnight_nudges VALUES(?,?,?,?,?,NULL)').run(randomUUID(),uid,target,socialNight(now()),now());
-      } else if(operation==='notifications/read') {
-        db.prepare('UPDATE goodnight_nudges SET read_at=? WHERE receiver=?').run(now(),uid);
       } else if(operation==='checkins') {
         const today=taipeiDate(now()),p=profile(uid),row=(p.records||[]).find(r=>r.date===today);
         if(!row||!rewardFacts(p,now()).some(r=>r.date===today))fail(400,'RECORD_REQUIRED','請先保存今天的早晨上床回報，再發布打卡。');

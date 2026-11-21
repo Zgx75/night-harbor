@@ -4,7 +4,7 @@ import { mkdtemp, readdir, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createApp } from '../src/server.mjs';
-import { rewardFacts, rewardSummary, taipeiDate, socialNight } from '../src/community/rewards.mjs';
+import { rewardFacts, rewardSummary, taipeiDate } from '../src/community/rewards.mjs';
 import { createEconomy, petTransaction, balance, addDays } from '../public/progress.js';
 
 const NOON=Date.parse('2026-11-10T12:00:00+08:00');
@@ -50,14 +50,10 @@ test('friends require consent, enforce ownership, and reveal no private profile'
   await post(a,'friends/request',{username:'bob'});await post(b,'friends/respond',{userId:a.user.id,action:'decline'});assert.equal((await read(a)).requests.length,0);
 });
 
-test('status sharing is opt in, expires, and goodnight reminders are friend-only and idempotent',async t=>{
+test('status sharing is opt in and expires',async t=>{
   const f=await fixture(t),a=await f.account('alice'),b=await f.account('bob'),c=await f.account('carol');await friends(a,b);
   await post(a,'status',{status:'sleeping'});assert.equal((await read(b)).friends[0].status,'unknown');
   await post(a,'preferences',{shareStatus:true,shareLeaderboard:false});assert.equal((await read(b)).friends[0].status,'sleeping');
-  assert.equal((await c.request('/api/social/nudges',{userId:a.user.id})).status,403);
-  await post(b,'nudges',{userId:a.user.id});await post(b,'nudges',{userId:a.user.id});
-  let d=await read(a);assert.equal(d.notifications.length,1);assert.equal(d.notifications[0].readAt,null);
-  d=await post(a,'notifications/read');assert.ok(d.notifications[0].readAt);
   f.at(NOON+19*3600000);assert.equal((await read(b)).friends[0].status,'unknown');
   await post(a,'preferences',{shareStatus:false,shareLeaderboard:false});assert.equal((await read(b)).friends[0].updatedAt,null);
 });
@@ -165,7 +161,7 @@ test('leaderboards require sharing, allow ties, compute cross-midnight progress 
 });
 
 test('reward dates use Taipei, handle gaps, unknown baselines and future morning records',()=>{
-  assert.equal(taipeiDate(Date.parse('2026-11-09T17:00:00Z')),'2026-11-10');assert.equal(socialNight(Date.parse('2026-11-09T17:00:00Z')),'2026-11-09');
+  assert.equal(taipeiDate(Date.parse('2026-11-09T17:00:00Z')),'2026-11-10');
   const p=sleepingProfile(['2026-11-07','2026-11-08','2026-11-10']);assert.equal(rewardSummary(p,NOON).currentStreak,1);assert.equal(rewardSummary(p,NOON).longestStreak,2);
   const late=sleepingProfile(['2026-11-10'],'01:00','00:00');assert.equal(rewardFacts(late,NOON)[0].improvement,null);assert.equal(rewardFacts(late,NOON)[0].amount,0);
   const broken=sleepingProfile(['2026-11-08','2026-11-09','2026-11-10']);broken.records.at(-1).bedAt='01:00';assert.equal(rewardSummary(broken,NOON).currentStreak,0);
@@ -180,4 +176,20 @@ test('social relationships, group funds and server reward ledgers persist across
   const next=await fixture(t,{dbPath}),restored=next.client(cookie),d=await read(restored);assert.equal(d.friends.length,1);assert.equal(d.group.balance,10);assert.equal(d.group.id,g.id);
   await save(restored,sleepingProfile(['2026-11-10']));assert.equal((await read(restored)).group.balance,10);
   await next.close();for(const file of await readdir(dir))await unlink(path.join(dir,file));await rmdir(dir);
+});
+
+test('a friend card gets the friend\'s companion and no private profile; pending invitations can be withdrawn',async t=>{
+  const f=await fixture(t),a=await f.account('alice'),b=await f.account('bob'),c=await f.account('carol');
+  await save(b,{economy:{pet:{id:'fox',name:'栗子'},credits:[],bonusCredits:[],transactions:[],inventory:[],placed:[],affection:50}});
+  await friends(a,b);
+  let d=await read(a);
+  assert.deepEqual(d.friends[0].pet,{id:'fox',name:'栗子'});
+  assert.equal(JSON.stringify(d).includes('records'),false,'no private profile data');
+  assert.equal('notifications' in d,false,'goodnight notes no longer exist');
+  // A friend without a companion has none to show.
+  await friends(a,c);const carol=(await read(a)).friends.find(x=>x.id===c.user.id);assert.equal(carol.pet,null);
+  // Withdrawing a pending invitation uses the same removal call as unfriending.
+  const dave=await f.account('dave');await post(a,'friends/request',{username:'dave'});
+  assert.equal((await read(a)).requests.length,1);
+  d=await post(a,'friends/remove',{userId:dave.user.id});assert.equal(d.requests.length,0);assert.equal((await read(dave)).requests.length,0);
 });

@@ -2,7 +2,6 @@ import { assessNight, addDays, nightMinute, nightInstant } from '../../public/pr
 
 export const MILESTONES = [{ days:3, amount:15, badge:'三晚小星星' }, { days:7, amount:40, badge:'七晚月亮' }, { days:21, amount:150, badge:'二十一晚星河' }];
 export const taipeiDate = now => new Date(now + 8*3600000).toISOString().slice(0,10);
-export const socialNight = now => taipeiDate(now - 6*3600000);
 const average = rows => rows.length ? rows.reduce((sum,r)=>sum+nightMinute(r.bedAt),0)/rows.length : null;
 export function validBedtime(row, now) {
   return row && row.date<=taipeiDate(now) && /^([01]\d|2[0-3]):[0-5]\d$/.test(row.bedAt || '') && nightMinute(row.bedAt)>=1080 && nightMinute(row.bedAt)<=1800 && nightInstant(addDays(row.date,-1),nightMinute(row.bedAt))<=now;

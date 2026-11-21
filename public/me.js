@@ -1,6 +1,6 @@
 // "My status and sharing" and "my progress" on the user page. The data comes from the same
 // social dashboard the friends page uses; nothing here is saved in the browser.
-const statusNames={awake:'尚未收尾',sleeping:'準備睡了',up:'已起床'};
+const statusNames={awake:'還醒著',sleeping:'準備睡了',up:'已起床'};
 
 export function createMe({state,api,flush,render,toast,esc}) {
   const ui={data:null,error:'',busy:false,loading:false,open:false,run:0};

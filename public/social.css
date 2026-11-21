@@ -31,13 +31,7 @@
 .social-add{padding:4px 0 18px;margin-bottom:6px;border-bottom:1px solid var(--line)}
 .friend-card{padding:20px 0;border-bottom:1px solid var(--line);min-width:0}
 .friend-card:last-of-type{border-bottom:0}
-.friend-score{margin-top:12px;font-size:12px;color:var(--muted)}
-.friend-nudge{margin-top:10px;font-size:12px;color:var(--gold)!important}
 .friend-card .social-actions{margin-top:16px}
-.friend-menu{display:inline-block;padding:0;border:0}
-.friend-menu summary{display:grid;place-items:center;min-width:36px;min-height:36px;border:1px solid #575665;border-radius:12px;color:var(--muted);list-style:none}
-.friend-menu summary::-webkit-details-marker{display:none}
-.friend-menu[open]{display:flex;align-items:center;gap:8px}
 .social-group details{padding:0;border:0}
 .social-group summary{font-size:14px;color:var(--text)}
 .social-group summary strong{font-weight:500}
@@ -45,3 +39,13 @@
 @media(max-width:760px){.social-person{align-items:flex-start;flex-wrap:wrap}.social-person>.social-actions{width:100%}.social-invite code{font-size:16px}.friend-head{flex-wrap:wrap}}
 #social-page .social-inline>.field{margin-bottom:0}
 #social-page .social-inline>.field input,#social-page .social-inline>.field select{height:48px;box-sizing:border-box}#social-page .social-inline>.button{height:48px;min-height:48px}
+.friend-head{justify-content:flex-start;align-items:center;gap:14px}
+.friend-avatar{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:50%;background:#ffffff0d;font-size:28px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji",sans-serif}
+.friend-who{display:grid;gap:2px;min-width:0}.friend-who small{margin-top:0}
+.friend-who .social-status{display:flex;align-items:center;gap:7px;margin-top:4px;color:var(--muted)}
+.friend-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#6b6f7f}.friend-dot.awake{background:var(--gold)}.friend-dot.sleeping{background:var(--lilac)}.friend-dot.up{background:var(--green)}
+.friend-scores{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.score-chip{padding:4px 11px;border:1px solid var(--line);border-radius:50px;font-size:12px;color:var(--text)}.score-chip.good{color:var(--green);border-color:#a8c5b166}.score-chip.quiet{color:var(--faint)}
+.social-add{padding:20px 24px}.social-account{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:13px;color:var(--muted)}.social-account code{color:var(--gold);font-size:15px}
+.friend-card{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;padding:14px 0}
+.friend-card .friend-head{flex:1 1 240px;min-width:0}.friend-card .friend-scores{margin-top:0;flex:0 1 auto}.friend-card>.button{margin-left:auto}
