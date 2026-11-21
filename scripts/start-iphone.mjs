@@ -2,7 +2,7 @@ import { networkInterfaces } from 'node:os';
 import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 
 export function lanAddresses(interfaces = networkInterfaces()) {
   const privateIP = address => /^10\./.test(address) || /^192\.168\./.test(address) || /^172\.(1[6-9]|2\d|3[01])\./.test(address);

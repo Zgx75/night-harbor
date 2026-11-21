@@ -1,11 +1,11 @@
 // Weekly AI reply. The program computes every number and decides whether there is enough data;
 // the model only turns these facts into a short review and one small step for next week.
-import { AppError } from './ai.mjs';
-import { cleanRecords, isDate } from './domain.mjs';
+import { AppError } from '../ai/ai.mjs';
+import { cleanRecords, isDate } from '../domain.mjs';
 import { cleanTargets } from './reports.mjs';
-import { weeklySummary } from './public/responses.js';
-import { cleanSurveys, weekFactors, gapFacts } from './public/factor-survey.js';
-import { formatClock } from './public/progress.js';
+import { weeklySummary } from '../../public/responses.js';
+import { cleanSurveys, weekFactors, gapFacts } from '../../public/factor-survey.js';
+import { formatClock } from '../../public/progress.js';
 
 const round = (v, d = 0) => v == null ? null : Number(v.toFixed(d));
 

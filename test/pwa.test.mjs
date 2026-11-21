@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import vm from 'node:vm';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 import { cleanRecords } from '../public/records.js';
 import { lanAddresses } from '../scripts/start-iphone.mjs';
 
@@ -69,7 +69,7 @@ test('the installable shell is complete, works from cache and never caches API d
     }
     const html = await shell.get('/').clone().text();
     assert.match(html, /apple-touch-icon/);
-    assert.match(html, /id="install-dialog"/);
+    assert.doesNotMatch(html, /install-banner|install-dialog/, 'the home-screen banner and its dialog are gone');
   });
 
   await t.test('a cached launch works without the server and API routes bypass cache', async () => {

@@ -3,14 +3,14 @@ import { randomBytes, randomUUID, createHash, scrypt, timingSafeEqual } from 'no
 import { promisify } from 'node:util';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { AppError } from './ai.mjs';
-import { cleanRecords, isTime } from './domain.mjs';
-import { cleanTargets } from './reports.mjs';
-import { normaliseEconomy } from './public/progress.js';
-import { createSocialStore } from './social.mjs';
-import { cleanOnboarding } from './public/onboarding.js';
-import { cleanFeedback, cleanWeeklyRecap, cleanMonthlyRecap } from './public/responses.js';
-import { cleanSurveys } from './public/factor-survey.js';
+import { AppError } from '../ai/ai.mjs';
+import { cleanRecords, isTime } from '../domain.mjs';
+import { cleanTargets } from '../reports/reports.mjs';
+import { normaliseEconomy } from '../../public/progress.js';
+import { createSocialStore } from '../community/social.mjs';
+import { cleanOnboarding } from '../../public/onboarding.js';
+import { cleanFeedback, cleanWeeklyRecap, cleanMonthlyRecap } from '../../public/responses.js';
+import { cleanSurveys } from '../../public/factor-survey.js';
 
 const derive = promisify(scrypt);
 const HASH_OPTIONS = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
@@ -32,10 +32,6 @@ export function cleanProfile(value) {
     const time = s[key] ?? fallback;
     if (!(key === 'currentBedtime' && time === '') && !isTime(time)) throw new AppError(400, 'PROFILE_INPUT', '偏好設定的時間格式有誤。');
     settings[key] = time;
-  }
-  for (const [key, fallback] of Object.entries({ reminders: false, saveClosures: true })) {
-    if (s[key] !== undefined && typeof s[key] !== 'boolean') throw new AppError(400, 'PROFILE_INPUT', '偏好設定格式有誤。');
-    settings[key] = s[key] ?? fallback;
   }
   const closures = value.closures ?? [];
   if (!Array.isArray(closures) || closures.length > 60) throw new AppError(400, 'PROFILE_INPUT', '最多保存 60 筆收尾紀錄。');
@@ -64,7 +60,7 @@ export function cleanProfile(value) {
   return { settings, records: cleanRecords(value.records ?? []), closures: cleanClosures, economy: normaliseEconomy(value.economy), targets: cleanTargets(value.targets ?? {}), aiPlan, onboarding, petFeedback, factorSurveys, weeklyRecap, monthlyRecap };
 }
 
-export function createAccountStore({ filename, now = Date.now } = {}) {
+export function createAccountStore({ filename, now = Date.now, unlimitedGroupCoins = false } = {}) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   db.exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
@@ -82,7 +78,7 @@ export function createAccountStore({ filename, now = Date.now } = {}) {
     );
     CREATE INDEX IF NOT EXISTS session_expiry ON account_sessions(expires_at);`);
   let hashing = 0;
-  const social = createSocialStore({ db, now });
+  const social = createSocialStore({ db, now, unlimitedGroupCoins });
   async function hash(password, salt) {
     if (hashing >= 2) throw new AppError(503, 'AUTH_BUSY', '目前登入人數較多，請稍後再試。');
     hashing++;

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dailyKind, lateCount, nextFeedback, cleanFeedback, lineText, DAILY_LINES, weeklySummary, weeklySuggestion } from '../public/responses.js';
 import { assessNight, addDays, awardNight, createEconomy, petTransaction, nightInstant } from '../public/progress.js';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 
 const today = '2026-10-15';
 const now = Date.parse('2026-10-15T12:00:00+08:00');

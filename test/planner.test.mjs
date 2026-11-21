@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preparePlan,validatePlanReply,createPlanGenerator,holdSignals} from '../planner.mjs';
+import {preparePlan,validatePlanReply,createPlanGenerator,holdSignals} from '../src/ai/planner.mjs';
 import {planInputKey,cachedPlan,lockedTarget} from '../public/plan-state.js';
 import {snapshotTargets,assessNight} from '../public/progress.js';
-import {nightMinutes} from '../domain.mjs';
+import {nightMinutes} from '../src/domain.mjs';
 const now=Date.parse('2026-10-15T12:00:00+08:00');
 const input={records:[],currentBedtime:'03:00',targetBedtime:'23:00',wakeTime:'08:00',asOf:'2026-10-15',targets:{}};
 const reply=(bedtime='02:40')=>({bedtime,reason:`目前自填通常03:00上床，最終希望23:00；先暫定今晚${bedtime}，之後依紀錄調整。`,observations:['還沒有近期睡眠紀錄。'],nextStep:'先在睡前安排安靜活動。',sourceIds:['K2']});

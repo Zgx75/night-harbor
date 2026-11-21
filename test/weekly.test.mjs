@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { weeklyFacts, weeklyQuestion } from '../weekly.mjs';
+import { weeklyFacts, weeklyQuestion } from '../src/reports/weekly.mjs';
 import { weekFactors } from '../public/factor-survey.js';
 import { weeklyRecapDue, cleanWeeklyRecap } from '../public/responses.js';
-import { createAdviceGenerator } from '../advice.mjs';
+import { createAdviceGenerator } from '../src/ai/advice.mjs';
 import { addDays, nightInstant } from '../public/progress.js';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 
 const today = '2026-10-15';
 const now = Date.parse('2026-10-15T12:00:00+08:00');

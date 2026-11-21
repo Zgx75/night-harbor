@@ -1,9 +1,9 @@
 import { AppError } from './ai.mjs';
-import { makePlan, cleanRecords, nightMinutes, minutes, clock, addDays, isTime } from './domain.mjs';
-import { cleanTargets } from './reports.mjs';
-import { assessNight, nightInstant } from './public/progress.js';
+import { makePlan, cleanRecords, nightMinutes, minutes, clock, addDays, isTime } from '../domain.mjs';
+import { cleanTargets } from '../reports/reports.mjs';
+import { assessNight, nightInstant } from '../../public/progress.js';
 import { knowledge } from './knowledge.mjs';
-import { cleanOnboarding, plannerSummary } from './public/onboarding.js';
+import { cleanOnboarding, plannerSummary } from '../../public/onboarding.js';
 
 const schema = { type:'OBJECT', properties:{ bedtime:{type:'STRING',description:'今晚建議上床時間，HH:MM'}, reason:{type:'STRING',description:'依個人資料說明今晚時間的理由，台灣繁體中文'}, observations:{type:'ARRAY',items:{type:'STRING'}}, nextStep:{type:'STRING',description:'一個今天做得到的行動，不另訂就寢時間'}, sourceIds:{type:'ARRAY',items:{type:'STRING'}} }, required:['bedtime','reason','observations','nextStep','sourceIds'] };
 

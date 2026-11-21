@@ -1,5 +1,5 @@
-import { AppError } from './ai.mjs';
-import { isDate, isTime, nightMinutes } from './domain.mjs';
+import { AppError } from '../ai/ai.mjs';
+import { isDate, isTime, nightMinutes } from '../domain.mjs';
 // Validates the nightly targets saved before each night; coins and reviews compare against them.
 export function cleanTargets(input={}) {
   if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length>90)throw new AppError(400,'TARGETS','睡前目標資料有誤。');

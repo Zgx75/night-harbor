@@ -1,13 +1,13 @@
 import { PETS } from './progress.js';
 
-const statusNames={awake:'尚未收尾',sleeping:'準備睡了',up:'已起床',unknown:'尚未更新'};
+const statusNames={awake:'還醒著',sleeping:'準備睡了',up:'已起床',unknown:'尚未更新'};
 const sortNames={name:'名字',onTime:'近七天達標晚數',improvement:'比前七天提早分鐘',streak:'連續達標'};
 const sortFields={onTime:'onTime',improvement:'improvement',streak:'currentStreak'};
 const DAY=86400000;
 const BOARD='/api/social/leaderboard?scope=friends&metric=onTime';
 
-export function createSocial({state,api,flush,render,toast,esc,user}) {
-  const ui={data:null,board:null,sort:'name',adding:false,open:{group:false},query:'',results:null,error:'',busy:false,loading:false,dirty:false,reading:false,run:0};
+export function createSocial({state,api,flush,render,toast,esc,user,confirmAction,onBadge,onGroupChange}) {
+  const ui={data:null,board:null,sort:'name',inviteQuery:'',open:{group:false},query:'',results:null,error:'',busy:false,loading:false,dirty:false,run:0};
   const $=s=>document.querySelector(s);
   const onPage=()=>location.hash==='#social';
   const button=(label,op,attributes='')=>`<button class="button secondary small" type="button" data-social-op="${op}" ${attributes}>${label}</button>`;
@@ -18,16 +18,17 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
   const post=(path,body)=>api('/api/social/'+path,body);
   // Search results must follow friend changes made elsewhere (for example the other person accepting).
   const syncResults=d=>{if(ui.results)ui.results=ui.results.map(p=>({...p,relationship:d.friends.some(f=>f.id===p.id)?'accepted':d.requests.some(f=>f.id===p.id)?'pending':'none'}));};
+  // Companion emoji as the friend's picture, a coloured dot for their status, and plain words for times.
+  const avatar=p=>`<span class="friend-avatar" aria-hidden="true">${PETS.find(pet=>pet.id===p.pet?.id)?.emoji||'🐾'}</span>`;
+  const dotTone=p=>!p.shared||p.status==='unknown'?'quiet':p.status;
+  const ago=ms=>{const m=Math.round((Date.now()-ms)/60000);return m<2?'剛剛':m<60?`${m} 分鐘前`:m<1440?`${Math.floor(m/60)} 小時前`:'超過一天前';};
+  // Number shown as a dot on the navigation: friend and group invitations waiting for an answer.
+  const unseen=d=>d?d.requests.filter(r=>r.direction==='incoming').length+d.groupInvites.length:0;
+  const badge=()=>{if(onBadge)onBadge(unseen(ui.data));};
   function memberRow(p,actions='') {return `<div class="social-person"><div>${person(p)}${p.shared!==undefined?`<span class="social-status">${status(p)}</span>`:''}</div><div class="social-actions">${actions}</div></div>`;}
 
-  // Goodnight notes are shown on the sender's card, so opening the page counts as reading them.
-  function markRead() {
-    if(ui.reading||!onPage()||document.visibilityState!=='visible'||!ui.data?.notifications.some(n=>!n.readAt))return;
-    ui.reading=true;
-    post('notifications/read',{}).then(result=>{if(ui.data&&result?.notifications)ui.data={...ui.data,notifications:result.notifications};}).catch(()=>{}).finally(()=>{ui.reading=false;});
-  }
   async function refresh({quiet=false}={}) {
-    if(state.demo||ui.busy||ui.loading)return;
+    if(ui.busy||ui.loading)return;
     if(quiet&&(ui.dirty||document.activeElement?.matches('input,textarea,select')))return;
     const run=++ui.run;ui.loading=true;
     if(!quiet){ui.error='';if(onPage())render();}
@@ -35,9 +36,16 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
       await flush();
       const [data,board]=await Promise.all([api('/api/social'),api(BOARD)]);
       if(run!==ui.run)return;
-      ui.data=data;ui.board=board;ui.error='';syncResults(data);markRead();
+      const first=ui.data===null,before=JSON.stringify(ui.data?.group??null);
+      ui.data=data;ui.board=board;ui.error='';syncResults(data);badge();
+      if(onGroupChange)onGroupChange(first||before!==JSON.stringify(data.group??null));
     }catch(error){if(run===ui.run)ui.error=error.message;}
     finally{if(run===ui.run){ui.loading=false;if(onPage()&&(!quiet||!document.activeElement?.matches('input,textarea,select')))render();}}
+  }
+  async function groupPet(body) {
+    const result=await post('groups/pet',body);
+    ui.data=result;badge();
+    return result.group;
   }
   async function action(work, message) {
     if(ui.busy)return;
@@ -46,7 +54,7 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
     try {
       const result=await work();
       if(result?.friends){
-        ui.data=result;syncResults(result);
+        ui.data=result;syncResults(result);badge();
       }
       ui.board=await api(BOARD);
       if(message)toast(message);
@@ -54,12 +62,12 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
     finally{ui.busy=false;if(onPage())render();}
   }
 
-  function scoreLine(score) {
-    if(!score)return '未分享成績';
-    const parts=[`近七天達標 ${score.onTime} 晚`,`連續 ${score.currentStreak} 晚`];
-    if(score.improvement>0)parts.push(`比前七天提早 ${score.improvement} 分鐘`);
-    else if(score.improvement<0)parts.push(`比前七天延後 ${-score.improvement} 分鐘`);
-    return parts.join(' · ');
+  function scoreChips(score) {
+    if(!score)return '';
+    const chips=[`<span class="score-chip">近 7 天 ${score.onTime} 晚</span>`,`<span class="score-chip">連續 ${score.currentStreak} 晚</span>`];
+    if(score.improvement>0)chips.push(`<span class="score-chip good">提早 ${score.improvement} 分</span>`);
+    else if(score.improvement<0)chips.push(`<span class="score-chip">延後 ${-score.improvement} 分</span>`);
+    return chips.join('');
   }
   function sortedFriends(d) {
     const scores=new Map((ui.board?.rows||[]).filter(row=>row.id!==user.id).map(row=>[row.id,row]));
@@ -75,53 +83,77 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
 
   function requestsHTML(d) {
     if(!d.requests.length)return '';
-    return `<section class="panel"><h2>好友邀請 · ${d.requests.length}</h2>${d.requests.map(p=>memberRow(p,p.direction==='incoming'?button('接受','accept',`data-user="${p.id}"`)+button('婉拒','decline',`data-user="${p.id}"`):`<span class="notice">等待對方接受</span>${button('取消','remove',`data-user="${p.id}"`)}`)).join('')}</section>`;
+    return `<section class="panel"><h2>好友邀請 · ${d.requests.length}</h2>${d.requests.map(p=>memberRow(p,p.direction==='incoming'?button('接受','accept',`data-user="${p.id}"`)+button('婉拒','decline',`data-user="${p.id}"`):`<span class="notice">等待對方接受</span>${button('取消邀請','cancel',`data-user="${p.id}"`)}`)).join('')}</section>`;
+  }
+  // Always on top: your own account name (what friends need to find you) next to the search.
+  function groupInvitesHTML(d) {
+    if(!d.groupInvites.length)return '';
+    return `<section class="panel"><h2>共養邀請 · ${d.groupInvites.length}</h2>${d.groupInvites.map(i=>`<div class="social-person"><div>${person(i.from)}<small class="invite-note">邀請你加入共養小組「${esc(i.groupName)}」，一起照顧 ${esc(i.petName)}</small></div><div class="social-actions">${d.group?'<span class="notice">要先離開目前的小組才能接受</span>':button('接受','gaccept',`data-group="${i.groupId}"`)}${button('拒絕','gdecline',`data-group="${i.groupId}"`)}</div></div>`).join('')}</section>`;
   }
   function addHTML() {
-    return `<div class="social-add"><form id="social-search-form" class="social-inline"><label class="field">好友帳號<input name="query" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required value="${esc(ui.query)}" placeholder="輸入至少 3 個帳號字元" autocapitalize="none" autocomplete="off"></label><button class="button" type="submit">搜尋</button></form>${ui.results?`<div class="social-list">${ui.results.length?ui.results.map(p=>memberRow(p,p.relationship==='none'?button('邀請好友','request',`data-username="${esc(p.username)}"`):`<span class="chip">${p.relationship==='accepted'?'已是好友':'邀請待處理'}</span>`)).join(''):empty('找不到符合的帳號。')}</div>`:''}</div>`;
+    return `<section class="panel social-add"><div class="social-account"><span>我的帳號</span><code>@${esc(user.username)}</code>${button('複製','copyAccount')}</div><form id="social-search-form" class="social-inline"><label class="field">好友帳號<input name="query" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required value="${esc(ui.query)}" placeholder="輸入至少 3 個帳號字元" autocapitalize="none" autocomplete="off"></label><button class="button" type="submit">搜尋</button></form>${ui.results?`<div class="social-list">${ui.results.length?ui.results.map(p=>memberRow(p,p.relationship==='none'?button('邀請好友','request',`data-username="${esc(p.username)}"`):`<span class="chip">${p.relationship==='accepted'?'已是好友':'邀請待處理'}</span>`)).join(''):empty('找不到符合的帳號。')}</div>`:''}</section>`;
   }
+  // One compact row: picture and name, then the score tags, then the buttons (the co-raising one only for teammates).
   function cardHTML(d,{friend:p,score}) {
-    const nudge=d.notifications.find(n=>n.username===p.username&&Date.now()-n.createdAt<DAY);
-    return `<article class="friend-card"><div class="friend-head"><div>${person(p)}</div><span class="social-status">${status(p)}</span></div><p class="friend-score">${scoreLine(score)}</p>${nudge?'<p class="friend-nudge">✦ 送來一句晚安：今天辛苦了，記得留點時間休息。</p>':''}<div class="social-actions">${button('送晚安','nudge',`data-user="${p.id}"`)}<details class="friend-menu"><summary aria-label="更多選項">⋯</summary>${button('移除好友','remove',`data-user="${p.id}"`)}</details></div></article>`;
+    const when=p.shared&&p.status!=='unknown'&&p.updatedAt?` · ${ago(p.updatedAt)}`:'';
+    return `<article class="friend-card"><div class="friend-head">${avatar(p)}<div class="friend-who">${person(p)}<span class="social-status"><i class="friend-dot ${dotTone(p)}" aria-hidden="true"></i>${status(p)}${when}</span></div></div>${scoreChips(score)?`<div class="friend-scores">${scoreChips(score)}</div>`:''}<div class="friend-actions">${d.group?.members.some(m=>m.id===p.id)?'<a class="button secondary small" href="#group">共養夥伴：1</a>':''}${button('移除好友','remove',`data-user="${p.id}" data-name="${esc(p.displayName)}"`)}</div></article>`;
   }
   function listHTML(d) {
     const rows=sortedFriends(d);
-    return `<section class="panel"><div class="section-heading"><h2>好友 · ${d.friends.length}</h2><div class="social-actions"><label class="social-sort">排序<select id="social-sort" aria-label="好友排序">${Object.entries(sortNames).map(([key,label])=>`<option value="${key}" ${ui.sort===key?'selected':''}>${label}</option>`).join('')}</select></label>${button(ui.adding?'收起':'＋加好友','add')}</div></div>${ui.adding?addHTML():''}${rows.length?rows.map(row=>cardHTML(d,row)).join(''):empty('搜尋朋友的帳號，送出第一張邀請。')}${notice('成績只顯示有分享成績的好友。每位好友每晚最多一則晚安，在夜泊內收取，不會背景推播。')}</section>`;
+    // Sorting only matters once there are a few friends to sort.
+    const sorter=d.friends.length>=3?`<label class="social-sort">排序<select id="social-sort" aria-label="好友排序">${Object.entries(sortNames).map(([key,label])=>`<option value="${key}" ${ui.sort===key?'selected':''}>${label}</option>`).join('')}</select></label>`:'';
+    return `<section class="panel"><div class="section-heading"><h2>好友 · ${d.friends.length}</h2>${sorter?`<div class="social-actions">${sorter}</div>`:''}</div>${rows.length?rows.map(row=>cardHTML(d,row)).join(''):empty('搜尋朋友的帳號，送出第一張邀請。')}${notice('成績只顯示有分享成績的好友。')}</section>`;
+  }
+  // Friends who could still be invited into the group, narrowed by what was typed.
+  function inviteListHTML(d) {
+    const g=d.group,query=ui.inviteQuery.trim().toLowerCase();
+    if(g.members.length>=5)return empty('小組已滿五人。');
+    if(!d.friends.length)return empty('先加幾位好友，才能邀請他們一起共養。');
+    const memberIds=new Set(g.members.map(m=>m.id)),pending=new Set(g.pendingInvites.map(p=>p.id));
+    const rows=d.friends.filter(f=>!memberIds.has(f.id)&&(!query||f.displayName.toLowerCase().includes(query)||f.username.toLowerCase().includes(query)));
+    if(!rows.length)return empty('找不到符合的好友。');
+    return rows.map(f=>memberRow(f,pending.has(f.id)?`<span class="chip">已邀請</span>${button('取消邀請','gcancel',`data-user="${f.id}"`)}`:button('邀請共養','ginvite',`data-user="${f.id}"`))).join('');
   }
   function groupHTML(d) {
     const g=d.group;
-    const body=g?`<div class="social-invite"><span>邀請碼 <code>${esc(g.inviteCode)}</code></span>${button('複製','copy')}${g.ownerId===user.id?button('更新邀請碼','rotate'):''}</div>${g.members.map(p=>memberRow(p,`${p.id===g.ownerId?'<span class="chip">組長</span>':''}${g.ownerId===user.id&&p.id!==user.id?button('移出小組','kick',`data-user="${p.id}"`):''}`)).join('')}<div class="form-actions">${button('離開小組','leave')}</div>${notice('小組的寵物、家具與金幣目前不在這一頁顯示。組長離開後由最早加入的成員接任，最後一人離開後小組結束。')}`
+    const body=g?`<div class="social-invite"><span>邀請碼 <code>${esc(g.inviteCode)}</code></span>${button('複製','copy')}${g.ownerId===user.id?button('更新邀請碼','rotate'):''}</div>${g.members.map(p=>memberRow(p,`${p.id===g.ownerId?'<span class="chip">組長</span>':''}${g.ownerId===user.id&&p.id!==user.id?button('移出小組','kick',`data-user="${p.id}"`):''}`)).join('')}<div class="group-invite"><h3>邀請好友一起共養</h3><label class="field">搜尋我的好友<input id="invite-filter" value="${esc(ui.inviteQuery)}" placeholder="輸入名字或帳號" autocomplete="off"></label><div class="social-list" id="invite-list">${inviteListHTML(d)}</div></div><div class="form-actions">${button('離開小組','leave')}</div>${notice('組長離開後由最早加入的成員接任，最後一人離開後小組結束。')}`
       :`<div class="social-grid"><form id="social-create-group"><h3>建立小組</h3><label class="field">小組名稱<input name="name" required maxlength="24" placeholder="例如：月亮小隊"></label><label class="field">共養寵物<select name="petId">${PETS.map(p=>`<option value="${p.id}">${p.emoji} ${p.name}</option>`).join('')}</select></label><label class="field">寵物名字<input name="petName" required maxlength="16" placeholder="例如：麻糬"></label><button class="button small" type="submit">建立小組</button></form><form id="social-join-group"><h3>加入朋友的小組</h3><label class="field">邀請碼<input name="code" required maxlength="20" autocapitalize="characters" placeholder="輸入朋友提供的邀請碼"></label><button class="button small" type="submit">加入小組</button></form></div>${notice('每人同時參加一組，最多五人。個人寵物和金幣會保留。')}`;
     return `<section class="panel social-group"><details data-open="group" ${ui.open.group?'open':''}><summary><strong>共養小組</strong>：${g?`${esc(g.name)} · ${g.members.length} / 5 人`:'尚未加入'}</summary>${body}</details></section>`;
   }
   function html() {
-    if(state.demo)return `<div class="page-heading"><div><h1>好友</h1><p>離開示範模式後，就能和真實帳號的朋友互動。</p></div></div>`;
-    return `<div id="social-page"><div class="page-heading"><div><h1>一起，慢慢變好</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
+    return `<div id="social-page"><div class="page-heading"><div><h1>我的好友清單</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${groupInvitesHTML(ui.data)}${addHTML()}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
   }
   function bind() {
-    if(!onPage()||state.demo)return;
+    if(!onPage())return;
     document.querySelectorAll('#social-page form').forEach(el=>el.addEventListener('input',()=>{ui.dirty=true;}));
     document.querySelectorAll('#social-page details[data-open]').forEach(el=>el.addEventListener('toggle',()=>{ui.open[el.dataset.open]=el.open;}));
+    $('#invite-filter')?.addEventListener('input',event=>{ui.inviteQuery=event.target.value;const list=$('#invite-list');if(list&&ui.data?.group)list.innerHTML=inviteListHTML(ui.data);});
     $('#social-sort')?.addEventListener('change',event=>{ui.sort=sortNames[event.target.value]?event.target.value:'name';render();});
     const form=(selector,fn)=>$(selector)?.addEventListener('submit',event=>{event.preventDefault();ui.dirty=false;const values=Object.fromEntries(new FormData(event.currentTarget));action(()=>fn(values));});
     form('#social-search-form',async values=>{ui.query=values.query;const result=await api('/api/social/search?q='+encodeURIComponent(ui.query));ui.results=result.users;});
     form('#social-create-group',values=>post('groups/create',values));
     form('#social-join-group',values=>post('groups/join',values));
-    document.querySelectorAll('[data-social-op]').forEach(el=>el.addEventListener('click',async()=>{
+    const runOp=async el=>{
       const {socialOp:op,user:uid}=el.dataset;
       if(op==='refresh'){refresh();return;}
-      if(op==='add'){ui.adding=!ui.adding;render();if(ui.adding)$('#social-search-form input')?.focus();return;}
+      if(op==='copyAccount'){try{await navigator.clipboard.writeText(user.username);toast('已複製我的帳號。');}catch{toast('我的帳號：'+user.username);}return;}
       if(op==='copy'){try{await navigator.clipboard.writeText(ui.data.group.inviteCode);toast('已複製小組邀請碼。');}catch{toast('邀請碼：'+ui.data.group.inviteCode);}return;}
-      if(['leave','kick','rotate','remove'].includes(op)&&!window.confirm({leave:'確定離開目前小組？個人寵物不受影響。',kick:'確定將這位成員移出共養小組？',rotate:'更新後舊邀請碼將無法使用，確定更新？',remove:'確定移除好友或取消邀請？'}[op]))return;
+      // Risky actions ask in the app's own dialog.
+      const ask={leave:['離開小組？','確定離開目前小組？個人寵物不受影響。','確定離開'],kick:['移出成員？','確定將這位成員移出共養小組？','確定移出'],rotate:['更新邀請碼？','更新後舊邀請碼將無法使用，確定更新？','確定更新'],remove:['移除好友？',`確定要移除「${el.dataset.name||'這位好友'}」嗎？對方會從你的好友清單消失，之後要再加回來需要重新邀請。`,'確定移除']}[op];
+      if(ask&&!await confirmAction(ask[0],ask[1],ask[2],'先保留'))return;
       action(()=>{
         if(op==='request')return post('friends/request',{username:el.dataset.username});
         if(op==='accept'||op==='decline')return post('friends/respond',{userId:uid,action:op});
-        if(op==='remove')return post('friends/remove',{userId:uid});
-        if(op==='nudge')return post('nudges',{userId:uid});
+        if(op==='remove'||op==='cancel')return post('friends/remove',{userId:uid});
+        if(op==='ginvite')return post('groups/invite',{userId:uid});
+        if(op==='gcancel')return post('groups/invite/cancel',{userId:uid});
+        if(op==='gaccept'||op==='gdecline')return post('groups/invite/respond',{groupId:el.dataset.group,action:op==='gaccept'?'accept':'decline'});
         if(op==='leave'||op==='rotate')return post('groups/'+op,{});
         if(op==='kick')return post('groups/kick',{userId:uid});
-      },op==='nudge'?'晚安已送出；同一位好友每晚只保留一則。':undefined);
-    }));
+      });
+    };
+    document.querySelectorAll('[data-social-op]:not(#invite-list [data-social-op])').forEach(el=>el.addEventListener('click',()=>runOp(el)));
+    $('#invite-list')?.addEventListener('click',event=>{const el=event.target.closest('[data-social-op]');if(el)runOp(el);});
   }
-  return {html,bind,refresh,canUpdate:()=>!ui.busy&&(!onPage()||!ui.dirty)};
+  return {html,bind,refresh,group:()=>ui.data?.group||null,ready:()=>ui.data!==null,groupPet,canUpdate:()=>!ui.busy&&(!onPage()||!ui.dirty)};
 }

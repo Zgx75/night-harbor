@@ -10,5 +10,5 @@ if errorlevel 1 (
 echo Starting Night Harbor...
 echo Open http://127.0.0.1:3000 in your browser.
 echo Keep this window open. Press Ctrl+C to stop.
-node server.mjs
+node src/server.mjs
 pause

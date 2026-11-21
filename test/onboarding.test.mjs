@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanAnswers, cleanOnboarding, deriveSleep, validateStep, plannerSummary, ONBOARDING_VERSION } from '../public/onboarding.js';
-import { createPlanGenerator } from '../planner.mjs';
+import { createPlanGenerator } from '../src/ai/planner.mjs';
 import { planInputKey } from '../public/plan-state.js';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 
 const answers = (patch = {}) => ({
   workDays: 5,

@@ -1,5 +1,5 @@
 import { AppError } from './ai.mjs';
-import { cleanRecords, addDays, isDate } from './domain.mjs';
+import { cleanRecords, addDays, isDate } from '../domain.mjs';
 import { retrieve } from './knowledge.mjs';
 export function createAdviceGenerator({ apiKey, model = 'gemini-3.5-flash-lite', fetchImpl = fetch } = {}) {
   return async ({ question, records: input, asOf, reportContext=null }) => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 async function fixture(t,options={}) {
   const server=createApp({apiKey:'test-key',dbPath:':memory:',...options});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));

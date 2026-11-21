@@ -26,7 +26,7 @@
 <body data-auth="loading">
   <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title">
     <div class="auth-card">
-      <div class="auth-brand"><span aria-hidden="true">☾</span><span>夜泊<small>NIGHT HARBOR</small></span></div>
+      <div class="auth-brand"><span aria-hidden="true">☾</span><span>夜泊</span></div>
       <h1 id="auth-title">把你的小日常，留在這裡。</h1>
       <p class="auth-intro">登入後，回到你和小夥伴的房間。</p>
       <p id="auth-loading" role="status">正在確認登入狀態…</p>
@@ -39,13 +39,6 @@
         <label class="field">帳號<input id="auth-username" name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="例如：night_harbor"><span class="auth-hint">3–24 個英文字母、數字或底線，不分大小寫。</span></label>
         <label class="field">密碼<input id="auth-password" name="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password" placeholder="至少 8 個字元"></label>
         <label class="field" id="auth-confirm-row" hidden>再次輸入密碼<input id="auth-confirm" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="再確認一次密碼"></label>
-        <div class="auth-setup" id="auth-setup-row" hidden>
-          <h2>你的作息</h2>
-          <p class="auth-hint">夜泊會依這三個時間安排今晚的目標，之後可以在「設定」修改。</p>
-          <label class="field">目前通常幾點上床<input id="auth-current-bedtime" name="currentBedtime" type="time"></label>
-          <label class="field">最終希望幾點上床<input id="auth-target-bedtime" name="targetBedtime" type="time" value="00:30"><span class="auth-hint">長期想靠近的時間，不是今晚必須達成。</span></label>
-          <label class="field">通常需要幾點起床<input id="auth-wake-time" name="wakeTime" type="time" value="08:30"></label>
-        </div>
         <p id="auth-error" role="alert"></p>
         <button class="button" type="submit" id="auth-submit">登入夜泊</button>
       </form>
@@ -55,10 +48,9 @@
   <a class="skip-link" href="#main">跳到主要內容</a>
   <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar" aria-label="功能工具列">
-      <a class="brand" href="#pet" aria-label="夜泊寵物首頁" title="回到寵物首頁"><span class="brand-symbol" aria-hidden="true">☾</span><span>夜泊<small>NIGHT HARBOR</small></span></a>
+      <a class="brand" href="#pet" aria-label="夜泊寵物首頁" title="回到寵物首頁"><span class="brand-symbol" aria-hidden="true">☾</span><span>夜泊</span></a>
       <nav aria-label="主要導覽">
         <a href="#pet" class="nav-link" data-nav="pet" aria-label="寵物首頁" title="寵物首頁"><span data-icon="pet"></span><span class="nav-text">夥伴</span></a>
-        <a href="#shop" class="nav-link" data-nav="shop" aria-label="商店" title="商店"><span data-icon="shop"></span><span class="nav-text">商店</span></a>
         <a href="#logs" class="nav-link" data-nav="logs" aria-label="生活紀錄" title="生活紀錄"><span data-icon="journal"></span><span class="nav-text">紀錄</span></a>
         <a href="#reports" class="nav-link" data-nav="reports" aria-label="睡眠回報" title="睡眠回報"><span data-icon="recap"></span><span class="nav-text">回報</span></a>
         <a href="#social" class="nav-link" data-nav="social" aria-label="好友與小組共養" title="好友與小組共養"><span data-icon="friends"></span><span class="nav-text">好友</span></a>
@@ -69,29 +61,13 @@
     <div class="content-shell">
       <header class="topbar"><div class="topbar-left"><button class="back-button" id="back-button" type="button" aria-label="回前一頁" hidden><span data-icon="back"></span></button></div><span class="mobile-brand"><span class="brand-moon" aria-hidden="true">☾</span>夜泊</span><div class="account-tools" id="account-tools" hidden><a class="account-button" id="account-button" href="#user" aria-label="使用者"><span data-icon="user"></span></a></div></header>
       <div class="account-sync" id="account-sync" role="status" hidden><span id="sync-label"></span><button class="text-button" type="button" id="sync-retry" hidden>重試同步</button><button class="text-button" type="button" id="sync-backup" hidden>下載此裝置備份</button><button class="text-button" type="button" id="sync-reload" hidden>讀取最新資料</button></div>
-      <section class="install-banner" id="install-banner" aria-label="安裝夜泊" hidden>
-        <img src="/icons/apple-touch-icon.png" width="44" height="44" alt="">
-        <div><strong>把夜泊，留在主畫面</strong><p>下次，點一下就能回到這裡。</p></div>
-        <button class="button secondary small" type="button" data-install-app>安裝</button>
-        <button class="install-dismiss" type="button" id="dismiss-install" aria-label="暫時隱藏安裝提示">×</button>
-      </section>
       <p class="offline-banner" id="offline-banner" role="status" hidden>目前離線。已登入頁面中的變更會先暫存在此裝置，恢復連線後再同步；重新登入與 AI 功能需要連線。</p>
       <section class="update-banner" id="update-banner" role="status" hidden><span>新版已準備好，完成手上的操作並同步資料後會自動更新。</span><button class="button secondary small" id="update-app" type="button">檢查並更新</button></section>
       <main id="main" tabindex="-1"></main>
-      <footer class="footer"><span>一個溫柔的句點，也是一個新的開始。</span><button class="text-button" type="button" data-install-app>iPhone 安裝說明</button><span>NIGHT HARBOR © 2026</span></footer>
+      <footer class="footer"><span>NIGHT HARBOR © 2026</span></footer>
     </div>
   </div>
   <div class="toast" role="status" id="toast" hidden></div>
-  <section class="nudge" id="nudge" aria-label="收尾提醒" hidden></section>
-  <dialog id="install-dialog" aria-labelledby="install-title">
-    <div class="install-dialog-heading"><img src="/icons/apple-touch-icon.png" width="56" height="56" alt=""><button class="install-dismiss" id="close-install" type="button" aria-label="關閉安裝說明">×</button></div>
-    <h2 id="install-title">在主畫面，為自己留一個位置</h2>
-    <p id="install-description">用 iPhone 的 Safari 開啟夜泊，依照以下步驟安裝。</p>
-    <ol class="install-steps"><li>開啟 Safari 的選單，點選「分享」。</li><li>往下找到「加入主畫面」。</li><li>若有「當作網頁 App 開啟」選項，將它開啟，再點「新增」。</li><li>回到主畫面，點「夜泊」圖示開始使用。</li></ol>
-    <p class="notice" id="pwa-storage-status">正在確認離線啟動狀態…</p>
-    <p class="notice">登入與 AI 分析需要連線。資料會跟著帳號保存，尚未同步的變更會暫存在目前裝置；請在偏好設定定期匯出備份。</p>
-    <button class="button" type="button" id="finish-install">知道了</button>
-  </dialog>
   <dialog id="confirm-dialog"><form method="dialog"><span class="dialog-star">✧</span><h2 id="dialog-title"></h2><p id="dialog-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">先保留</button><button class="button" value="confirm">確定清除</button></div></form></dialog>
   <dialog id="legacy-dialog" aria-labelledby="legacy-title"><form method="dialog"><h2 id="legacy-title">把原本的小日常帶過來？</h2><p>這台裝置有先前保存的寵物或生活紀錄。可以匯入這個新帳號，在其他裝置接著使用；也可以先從空白帳號開始。原本的裝置資料會保留。</p><div class="form-actions"><button class="button" value="import">匯入原有資料</button><button class="button secondary" value="skip">使用空白帳號</button></div></form></dialog>
 </body>

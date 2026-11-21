@@ -6,7 +6,7 @@
 .survey-step{margin:0 0 16px;color:var(--muted);font-size:13px;letter-spacing:.04em}
 .survey-form{display:flex;flex-direction:column;gap:6px}
 .survey-question{margin:0 0 18px;padding:0;border:0;min-width:0}
-.survey-question legend{padding:0;margin-bottom:8px;font-weight:600;color:var(--text)}
+.survey-question legend{padding:0;margin-bottom:8px;font-weight:700;color:var(--text)}
 .survey-question>.field-hint{margin:-4px 0 10px}
 .survey-question select,.survey-question>input[type=time]{min-width:160px;max-width:100%}
 .survey-block{margin:0 0 18px;padding:16px 18px 2px;border:1px solid var(--line);border-radius:18px;background:var(--panel-soft)}

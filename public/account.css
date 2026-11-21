@@ -4,7 +4,7 @@ body[data-auth]:not([data-auth=ready]) .skip-link{display:none}
 .auth-brand{display:flex;align-items:center;gap:13px;margin-bottom:28px;font-size:23px;letter-spacing:.12em}
 .auth-brand>span:first-child{font-size:41px;color:var(--gold);line-height:1}
 .auth-brand small{display:block;color:var(--muted);font-size:8px;margin-top:3px;letter-spacing:.19em}
-.auth-card h1{font-size:28px;font-weight:400;line-height:1.5;margin:0 0 9px}
+.auth-card h1{font-size:28px;font-weight:700;line-height:1.5;margin:0 0 9px}
 .auth-intro{color:var(--muted);font-size:13px;margin-bottom:25px}
 .auth-tabs{display:flex;gap:5px;padding:4px;border:1px solid var(--line);border-radius:13px;margin-bottom:24px}
 .auth-tabs button{flex:1;border:0;border-radius:9px;background:transparent;color:var(--muted);padding:10px;font-size:13px}
@@ -13,9 +13,6 @@ body[data-auth]:not([data-auth=ready]) .skip-link{display:none}
 #auth-form .field{gap:7px}
 #auth-form input{width:100%;font-size:16px;min-height:47px}
 .auth-hint{font-size:10px;color:var(--muted);font-weight:400;line-height:1.7}
-.auth-setup{display:flex;flex-direction:column;gap:14px;padding:18px;border:1px solid var(--line);border-radius:16px;background:#ffffff04}
-.auth-setup h2{font-size:15px;letter-spacing:.06em;color:var(--gold)}
-.auth-setup>.auth-hint{margin:-6px 0 0}
 #auth-error{color:#efb9b3;font-size:12px;min-height:0;line-height:1.7}
 #auth-error:empty{display:none}
 #auth-submit{width:100%;justify-content:center;margin-top:3px}

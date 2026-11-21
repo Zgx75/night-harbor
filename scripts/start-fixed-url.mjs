@@ -3,7 +3,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const STATE = path.join(ROOT, 'data', 'fixed-url.json');

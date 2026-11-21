@@ -1,8 +1,8 @@
 // Bump the version whenever the app shell changes. Keep an entire release together.
-const CACHE = 'night-harbor-shell-v20';
+const CACHE = 'night-harbor-shell-v67';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/type.css', '/extras.css', '/pwa.css', '/layout.css',
-  '/app.js', '/extras.js', '/progress.js', '/timing.js', '/plan-state.js',
+  '/app.js', '/extras.js', '/progress.js', '/plan-state.js',
   '/records.js', '/pwa.js', '/account.js', '/account.css', '/social.js', '/social.css', '/me.js', '/onboarding.js', '/onboarding-ui.js', '/onboarding.css', '/responses.js', '/responses.css', '/factor-survey.js', '/factor-survey-ui.js', '/manifest.webmanifest', '/icon.svg',
   '/icons/apple-touch-icon.png', '/icons/icon-192.png', '/icons/icon-512.png'
 ];

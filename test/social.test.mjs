@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readdir, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createApp } from '../server.mjs';
-import { rewardFacts, rewardSummary, taipeiDate, socialNight } from '../rewards.mjs';
+import { createApp } from '../src/server.mjs';
+import { rewardFacts, rewardSummary, taipeiDate } from '../src/community/rewards.mjs';
 import { createEconomy, petTransaction, balance, addDays } from '../public/progress.js';
 
 const NOON=Date.parse('2026-11-10T12:00:00+08:00');
 async function fixture(t, options={}) {
   let clock=options.at??NOON;
-  const app=createApp({apiKey:'',dbPath:options.dbPath||':memory:',now:()=>clock});
+  const app=createApp({apiKey:'',dbPath:options.dbPath||':memory:',now:()=>clock,unlimitedGroupCoins:options.unlimitedGroupCoins??false});
   await new Promise(resolve=>app.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${app.address().port}`;
   const close=async()=>{if(app.listening)await new Promise(resolve=>app.close(resolve));};t.after(close);
@@ -50,14 +50,10 @@ test('friends require consent, enforce ownership, and reveal no private profile'
   await post(a,'friends/request',{username:'bob'});await post(b,'friends/respond',{userId:a.user.id,action:'decline'});assert.equal((await read(a)).requests.length,0);
 });
 
-test('status sharing is opt in, expires, and goodnight reminders are friend-only and idempotent',async t=>{
+test('status sharing is opt in and expires',async t=>{
   const f=await fixture(t),a=await f.account('alice'),b=await f.account('bob'),c=await f.account('carol');await friends(a,b);
   await post(a,'status',{status:'sleeping'});assert.equal((await read(b)).friends[0].status,'unknown');
   await post(a,'preferences',{shareStatus:true,shareLeaderboard:false});assert.equal((await read(b)).friends[0].status,'sleeping');
-  assert.equal((await c.request('/api/social/nudges',{userId:a.user.id})).status,403);
-  await post(b,'nudges',{userId:a.user.id});await post(b,'nudges',{userId:a.user.id});
-  let d=await read(a);assert.equal(d.notifications.length,1);assert.equal(d.notifications[0].readAt,null);
-  d=await post(a,'notifications/read');assert.ok(d.notifications[0].readAt);
   f.at(NOON+19*3600000);assert.equal((await read(b)).friends[0].status,'unknown');
   await post(a,'preferences',{shareStatus:false,shareLeaderboard:false});assert.equal((await read(b)).friends[0].updatedAt,null);
 });
@@ -89,7 +85,7 @@ test('group funding, whole-team bonus and concurrent purchases settle exactly on
   assert.deepEqual(buys.map(r=>r.status).sort(),[200,400]);assert.equal((await read(a)).group.balance,10);
   const feeds=await Promise.all([a.request('/api/social/groups/pet',{type:'feed'}),b.request('/api/social/groups/pet',{type:'feed'}),a.request('/api/social/groups/pet',{type:'feed'})]);
   assert.deepEqual(feeds.map(r=>r.status).sort(),[200,200,400]);
-  const d=await read(a);assert.equal(d.group.balance,0);assert.equal(d.group.economy.affection,70);assert.equal(d.group.economy.inventory.filter(x=>x==='ball').length,1);
+  const d=await read(a);assert.equal(d.group.balance,0);assert.equal(d.group.economy.affection,50,'a day without care lowers it to the floor of 20; two feedings add 15 each');assert.equal(d.group.economy.inventory.filter(x=>x==='ball').length,1);
   assert.equal(balance((await read(a,'/api/profile')).profile.economy),20);
 });
 
@@ -165,7 +161,7 @@ test('leaderboards require sharing, allow ties, compute cross-midnight progress 
 });
 
 test('reward dates use Taipei, handle gaps, unknown baselines and future morning records',()=>{
-  assert.equal(taipeiDate(Date.parse('2026-11-09T17:00:00Z')),'2026-11-10');assert.equal(socialNight(Date.parse('2026-11-09T17:00:00Z')),'2026-11-09');
+  assert.equal(taipeiDate(Date.parse('2026-11-09T17:00:00Z')),'2026-11-10');
   const p=sleepingProfile(['2026-11-07','2026-11-08','2026-11-10']);assert.equal(rewardSummary(p,NOON).currentStreak,1);assert.equal(rewardSummary(p,NOON).longestStreak,2);
   const late=sleepingProfile(['2026-11-10'],'01:00','00:00');assert.equal(rewardFacts(late,NOON)[0].improvement,null);assert.equal(rewardFacts(late,NOON)[0].amount,0);
   const broken=sleepingProfile(['2026-11-08','2026-11-09','2026-11-10']);broken.records.at(-1).bedAt='01:00';assert.equal(rewardSummary(broken,NOON).currentStreak,0);
@@ -180,4 +176,77 @@ test('social relationships, group funds and server reward ledgers persist across
   const next=await fixture(t,{dbPath}),restored=next.client(cookie),d=await read(restored);assert.equal(d.friends.length,1);assert.equal(d.group.balance,10);assert.equal(d.group.id,g.id);
   await save(restored,sleepingProfile(['2026-11-10']));assert.equal((await read(restored)).group.balance,10);
   await next.close();for(const file of await readdir(dir))await unlink(path.join(dir,file));await rmdir(dir);
+});
+
+test('a friend card gets the friend\'s companion and no private profile; pending invitations can be withdrawn',async t=>{
+  const f=await fixture(t),a=await f.account('alice'),b=await f.account('bob'),c=await f.account('carol');
+  await save(b,{economy:{pet:{id:'fox',name:'栗子'},credits:[],bonusCredits:[],transactions:[],inventory:[],placed:[],affection:50}});
+  await friends(a,b);
+  let d=await read(a);
+  assert.deepEqual(d.friends[0].pet,{id:'fox',name:'栗子'});
+  assert.equal(JSON.stringify(d).includes('records'),false,'no private profile data');
+  assert.equal('notifications' in d,false,'goodnight notes no longer exist');
+  // A friend without a companion has none to show.
+  await friends(a,c);const carol=(await read(a)).friends.find(x=>x.id===c.user.id);assert.equal(carol.pet,null);
+  // Withdrawing a pending invitation uses the same removal call as unfriending.
+  const dave=await f.account('dave');await post(a,'friends/request',{username:'dave'});
+  assert.equal((await read(a)).requests.length,1);
+  d=await post(a,'friends/remove',{userId:dave.user.id});assert.equal(d.requests.length,0);assert.equal((await read(dave)).requests.length,0);
+});
+
+test('friends can be invited into a group, answer the invitation, and the group pet can be cared for, renamed and arranged',async t=>{
+  const f=await fixture(t,{at:Date.parse('2026-11-09T12:00:00+08:00')}),a=await f.account('alice'),b=await f.account('bob'),c=await f.account('carol'),d=await f.account('dave');
+  await friends(a,b);await friends(a,c);
+  const g=(await post(a,'groups/create',{name:'月亮小隊',petName:'麻糬'})).group;
+  assert.deepEqual(g.pendingInvites,[]);
+  assert.equal((await a.request('/api/social/groups/invite',{userId:d.user.id})).status,403,'only friends can be invited');
+  assert.equal((await d.request('/api/social/groups/invite',{userId:a.user.id})).status,403,'a person outside any group cannot invite');
+  let dash=await post(a,'groups/invite',{userId:b.user.id});assert.equal(dash.group.pendingInvites[0].username,'bob');
+  assert.equal((await a.request('/api/social/groups/invite',{userId:b.user.id})).status,409,'no duplicate invitations');
+  const mine=(await read(b)).groupInvites;assert.equal(mine.length,1);assert.equal(mine[0].groupName,'月亮小隊');assert.equal(mine[0].petName,'麻糬');assert.equal(mine[0].from.username,'alice');
+  assert.equal((await c.request('/api/social/groups/invite/respond',{groupId:g.id,action:'accept'})).status,404,'only the invited person can answer');
+  dash=await post(b,'groups/invite/respond',{groupId:g.id,action:'accept'});assert.equal(dash.group.members.length,2);assert.deepEqual(dash.groupInvites,[]);
+  assert.deepEqual((await read(a)).group.pendingInvites,[]);
+  // Withdrawing and declining.
+  await post(a,'groups/invite',{userId:c.user.id});dash=await post(a,'groups/invite/cancel',{userId:c.user.id});assert.deepEqual(dash.group.pendingInvites,[]);
+  await post(a,'groups/invite',{userId:c.user.id});dash=await post(c,'groups/invite/respond',{groupId:g.id,action:'decline'});assert.deepEqual(dash.groupInvites,[]);assert.equal(dash.group,null);
+  // Someone already in a group must leave it first.
+  await post(a,'groups/invite',{userId:c.user.id});
+  await post(c,'groups/create',{name:'另一隊',petName:'毛毛'});
+  assert.equal((await c.request('/api/social/groups/invite/respond',{groupId:g.id,action:'accept'})).status,404,'creating a group answered the waiting invitation');
+  assert.equal((await a.request('/api/social/groups/invite',{userId:c.user.id})).status,409,'someone already in a group cannot be invited');
+
+  // The group pet: care, rename (owner only) and arranging the room (anyone).
+  const view=(await read(b)).group;assert.ok(view.economy.affectionAt,'the satisfaction clock has started');assert.deepEqual(view.economy.credits,[]);
+  assert.equal((await b.request('/api/social/groups/pet',{type:'rename',name:'新名字'})).status,403,'only the owner renames');
+  assert.equal((await a.request('/api/social/groups/pet',{type:'feed'})).status,400,'no group coins yet');
+  f.at(NOON);const p=sleepingProfile(['2026-11-10']);await save(a,p);await save(b,p);
+  assert.equal((await read(a)).group.balance,40);
+  dash=await post(a,'groups/pet',{type:'buy',id:'ball'});assert.deepEqual(dash.group.economy.placed,['ball']);assert.equal(dash.group.balance,10);
+  assert.equal((await a.request('/api/social/groups/pet',{type:'rename',name:'新名字'})).status,400,'renaming costs 20 group coins and only 10 are left');
+  dash=await post(b,'groups/pet',{type:'layout',placed:['ball','tent'],layout:{ball:{x:0.2,y:0.05},tent:{x:0.5,y:0.5}}});
+  assert.deepEqual(dash.group.economy.placed,['ball'],'only owned pieces stay');assert.ok(dash.group.economy.layout.ball.y>=0.56,'a floor piece cannot go above the floor');
+  assert.equal(dash.group.economy.layout.tent,undefined);
+  assert.equal((await b.request('/api/social/groups/pet',{type:'layout',placed:'nope',layout:[]})).status,200,'bad shapes are ignored, not trusted');
+});
+
+test('the group pet is renamed with group coins and fed under the personal care rules',async t=>{
+  const f=await fixture(t,{at:Date.parse('2026-11-09T12:00:00+08:00')}),a=await f.account('alice'),b=await f.account('bob');
+  const created=await post(a,'groups/create',{name:'睡覺小隊',petName:'麻糬'});await post(b,'groups/join',{code:created.group.inviteCode});
+  f.at(NOON);const p=sleepingProfile(['2026-11-10']);await save(a,p);await save(b,p);
+  let d=await post(a,'groups/pet',{type:'rename',name:'  糯米  '});assert.equal(d.group.economy.pet.name,'糯米');assert.equal(d.group.balance,20);
+  assert.equal((await a.request('/api/social/groups/pet',{type:'rename',name:'糯米'})).status,400,'the same name is refused');
+  d=await post(b,'groups/pet',{type:'feed'});assert.equal(d.group.balance,15);
+  // A day passed since the pet was adopted, so its satisfaction had fallen to the floor (20) before this feeding added 15.
+  assert.equal(d.group.economy.affection,35);assert.equal(d.group.economy.careDays.length,0,'35 is below the care threshold');
+  d=await post(a,'groups/pet',{type:'feed'});assert.equal(d.group.economy.affection,50);
+});
+
+test('with the unlimited switch on, group coins never run out and nothing is charged',async t=>{
+  const f=await fixture(t,{at:Date.parse('2026-11-09T12:00:00+08:00'),unlimitedGroupCoins:true}),a=await f.account('alice');
+  let d=(await post(a,'groups/create',{name:'無限小隊',petName:'麻糬'}));assert.equal(d.group.unlimited,true);assert.equal(d.group.balance,0);
+  d=await post(a,'groups/pet',{type:'buy',id:'piano'});assert.deepEqual(d.group.economy.placed,['piano']);assert.equal(d.group.balance,0,'no charge was recorded');
+  d=await post(a,'groups/pet',{type:'rename',name:'糯米'});assert.equal(d.group.economy.pet.name,'糯米');
+  d=await post(a,'groups/pet',{type:'feed'});assert.equal(d.group.economy.transactions.length,0);assert.equal(d.group.balance,0);
+  assert.equal((await post(a,'groups/pet',{type:'buy',id:'piano'}).catch(()=>null)),null,'duplicate purchases are still refused');
 });

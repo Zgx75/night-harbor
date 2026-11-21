@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makePlan, cleanRecords, nightMinutes, clock } from '../domain.mjs';
-import { retrieve, knowledge } from '../knowledge.mjs';
+import { makePlan, cleanRecords, nightMinutes, clock } from '../src/domain.mjs';
+import { retrieve, knowledge } from '../src/ai/knowledge.mjs';
 const setup = { records:[], currentBedtime:'03:00', targetBedtime:'00:30', wakeTime:'08:30', asOf:'2026-10-15' };
 
 test('cross-midnight times are adjacent, not twelve hours apart',()=>{

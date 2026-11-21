@@ -1,6 +1,6 @@
 // "My status and sharing" and "my progress" on the user page. The data comes from the same
 // social dashboard the friends page uses; nothing here is saved in the browser.
-const statusNames={awake:'尚未收尾',sleeping:'準備睡了',up:'已起床'};
+const statusNames={awake:'還醒著',sleeping:'準備睡了',up:'已起床'};
 
 export function createMe({state,api,flush,render,toast,esc}) {
   const ui={data:null,error:'',busy:false,loading:false,open:false,run:0};
@@ -9,7 +9,7 @@ export function createMe({state,api,flush,render,toast,esc}) {
   const post=(path,body)=>api('/api/social/'+path,body);
 
   async function refresh() {
-    if(state.demo||ui.busy||ui.loading)return;
+    if(ui.busy||ui.loading)return;
     const run=++ui.run;ui.loading=true;ui.error='';
     try {
       await flush();
@@ -31,7 +31,6 @@ export function createMe({state,api,flush,render,toast,esc}) {
   }
 
   function html() {
-    if(state.demo)return `<section class="panel"><p class="notice">示範模式不會讀寫好友與成績。</p></section>`;
     const d=ui.data;
     if(!d)return `<div id="me-panels">${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:`<p class="notice">${ui.loading?'正在讀取…':'尚未讀取。'}</p>`}</div>`;
     const sharing=d.preferences.shareStatus,r=d.rewards;
@@ -50,7 +49,7 @@ export function createMe({state,api,flush,render,toast,esc}) {
   }
 
   function bind() {
-    if(!onPage()||state.demo)return;
+    if(!onPage())return;
     const savePrefs=()=>action(()=>post('preferences',{shareStatus:$('#share-status').checked,shareLeaderboard:$('#share-leaderboard').checked}));
     $('#share-status')?.addEventListener('change',savePrefs);
     $('#share-leaderboard')?.addEventListener('change',savePrefs);

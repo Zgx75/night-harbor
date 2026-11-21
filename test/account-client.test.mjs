@@ -92,7 +92,7 @@ test('offline changes stay under the current account and can sync after reconnec
   env.storage.set('night-harbor-account-other-user', JSON.stringify({ profile: { pet: 'other' }, revision: 9 }));
   const sync = createProfileSync(account({}));
   env.navigator.onLine = false;
-  sync.save({ settings: { reminders: true } });
+  sync.save({ settings: { targetBedtime: '01:00' } });
   assert.equal(await sync.flush(), false);
   assert.equal(requests, 0);
   assert.equal(JSON.parse(env.storage.get('night-harbor-account-account-one')).pending, true);
