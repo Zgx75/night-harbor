@@ -1,5 +1,5 @@
-import { cleanRecords as validateRecords } from './public/records.js';
-import { AppError } from './ai.mjs';
+import { cleanRecords as validateRecords } from '../public/records.js';
+import { AppError } from './ai/ai.mjs';
 export const isTime = s => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 export const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;
 export const minutes = s => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));

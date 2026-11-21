@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { AppError } from './ai.mjs';
-import { createEconomy, normaliseEconomy, petTransaction, addDays, nightInstant } from './public/progress.js';
+import { AppError } from '../ai/ai.mjs';
+import { createEconomy, normaliseEconomy, petTransaction, addDays, nightInstant } from '../../public/progress.js';
 import { MILESTONES, rewardFacts, rewardSummary, taipeiDate, socialNight } from './rewards.mjs';
 
 const fail=(status,code,message)=>{throw new AppError(status,code,message);};

@@ -3,14 +3,14 @@ import { randomBytes, randomUUID, createHash, scrypt, timingSafeEqual } from 'no
 import { promisify } from 'node:util';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { AppError } from './ai.mjs';
-import { cleanRecords, isTime } from './domain.mjs';
-import { cleanTargets } from './reports.mjs';
-import { normaliseEconomy } from './public/progress.js';
-import { createSocialStore } from './social.mjs';
-import { cleanOnboarding } from './public/onboarding.js';
-import { cleanFeedback, cleanWeeklyRecap, cleanMonthlyRecap } from './public/responses.js';
-import { cleanSurveys } from './public/factor-survey.js';
+import { AppError } from '../ai/ai.mjs';
+import { cleanRecords, isTime } from '../domain.mjs';
+import { cleanTargets } from '../reports/reports.mjs';
+import { normaliseEconomy } from '../../public/progress.js';
+import { createSocialStore } from '../community/social.mjs';
+import { cleanOnboarding } from '../../public/onboarding.js';
+import { cleanFeedback, cleanWeeklyRecap, cleanMonthlyRecap } from '../../public/responses.js';
+import { cleanSurveys } from '../../public/factor-survey.js';
 
 const derive = promisify(scrypt);
 const HASH_OPTIONS = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };

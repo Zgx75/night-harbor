@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import vm from 'node:vm';
-import { createApp } from '../server.mjs';
+import { createApp } from '../src/server.mjs';
 import { cleanRecords } from '../public/records.js';
 import { lanAddresses } from '../scripts/start-iphone.mjs';
 

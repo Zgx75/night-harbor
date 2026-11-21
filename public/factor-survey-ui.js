@@ -22,8 +22,7 @@ export function createFactorSurvey(ctx) {
   }
 
   function html() {
-    if (state.demo) return `<div class="page-heading"><div><h1>最近的作息</h1><p>示範模式不會保存問卷，回到自己的資料後就能填寫。</p></div></div>`;
-    const heading = `<div class="page-heading"><div><p class="eyebrow">A LITTLE CHECK-IN</p><h1>最近，有什麼不一樣嗎？</h1><p>大約一分鐘。只問你選的項目，沒有標準答案。</p></div></div>`;
+    const heading = `<div class="page-heading"><div><h1>最近，有什麼不一樣嗎？</h1><p>大約一分鐘。只問你選的項目，沒有標準答案。</p></div></div>`;
     if (thanks) return `${heading}<section class="panel"><h2>謝謝你告訴我</h2><p>我們會把這些和之後的紀錄放在一起看。回答只代表這幾天的狀況，不會被當成晚睡的原因。</p>${thanks.care ? careNote : ''}<div class="form-actions"><a class="button" href="#pet">回到小夥伴身邊${icon('arrow')}</a></div></section>`;
     const round = pending();
     if (!round) return `${heading}<section class="panel"><p>目前沒有需要填寫的問卷。最近七天有三晚比目標晚超過 15 分鐘時，小夥伴才會來問你。</p><a class="button secondary small" href="#pet">回到寵物首頁</a></section>`;
@@ -70,7 +69,7 @@ export function createFactorSurvey(ctx) {
   }
 
   function bind(page) {
-    if (page !== 'factors' || state.demo) return;
+    if (page !== 'factors') return;
     const form = $('#factor-form');
     if (!form) return;
     form.querySelectorAll('[data-rerender]').forEach(el => el.addEventListener('change', () => { collect(form); draft.error = ''; render(); }));
@@ -92,7 +91,7 @@ export function createFactorSurvey(ctx) {
     $('#factor-back')?.addEventListener('click', () => { collect(form); draft.step = 0; draft.error = ''; render(); });
   }
 
-  // A waiting round must be answered before the rest of the app is available (never in demo mode).
-  const required = () => !state.demo && Boolean(pending());
+  // A waiting round must be answered before the rest of the app is available.
+  const required = () => Boolean(pending());
   return { html, bind, required, busy: () => Boolean(draft) && location.hash === '#factors' };
 }

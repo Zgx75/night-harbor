@@ -27,7 +27,7 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
     post('notifications/read',{}).then(result=>{if(ui.data&&result?.notifications)ui.data={...ui.data,notifications:result.notifications};}).catch(()=>{}).finally(()=>{ui.reading=false;});
   }
   async function refresh({quiet=false}={}) {
-    if(state.demo||ui.busy||ui.loading)return;
+    if(ui.busy||ui.loading)return;
     if(quiet&&(ui.dirty||document.activeElement?.matches('input,textarea,select')))return;
     const run=++ui.run;ui.loading=true;
     if(!quiet){ui.error='';if(onPage())render();}
@@ -95,11 +95,10 @@ export function createSocial({state,api,flush,render,toast,esc,user}) {
     return `<section class="panel social-group"><details data-open="group" ${ui.open.group?'open':''}><summary><strong>共養小組</strong>：${g?`${esc(g.name)} · ${g.members.length} / 5 人`:'尚未加入'}</summary>${body}</details></section>`;
   }
   function html() {
-    if(state.demo)return `<div class="page-heading"><div><h1>好友</h1><p>離開示範模式後，就能和真實帳號的朋友互動。</p></div></div>`;
     return `<div id="social-page"><div class="page-heading"><div><h1>一起，慢慢變好</h1></div><button class="text-button" type="button" data-social-op="refresh" ${ui.loading?'disabled':''}>${ui.loading?'更新中…':'↻ 重新整理'}</button></div>${ui.error?`<div class="error-box" role="alert">${esc(ui.error)}</div>`:''}${ui.data?`${requestsHTML(ui.data)}${listHTML(ui.data)}${groupHTML(ui.data)}`:empty(ui.loading?'正在讀取好友與小組…':'尚未讀取資料，請按重新整理。')}</div>`;
   }
   function bind() {
-    if(!onPage()||state.demo)return;
+    if(!onPage())return;
     document.querySelectorAll('#social-page form').forEach(el=>el.addEventListener('input',()=>{ui.dirty=true;}));
     document.querySelectorAll('#social-page details[data-open]').forEach(el=>el.addEventListener('toggle',()=>{ui.open[el.dataset.open]=el.open;}));
     $('#social-sort')?.addEventListener('change',event=>{ui.sort=sortNames[event.target.value]?event.target.value:'name';render();});

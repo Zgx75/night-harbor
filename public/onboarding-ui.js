@@ -13,7 +13,7 @@ export function createOnboarding(ctx) {
   };
   const needsPet = () => !state.economy.pet;
   // First-login users are sent here automatically; existing data is never forced through it.
-  const shouldStart = () => !state.demo && !state.onboarding && !state.economy.pet && !state.records.length;
+  const shouldStart = () => !state.onboarding && !state.economy.pet && !state.records.length;
 
   const radios = (name, options, value) => `<div class="choice-row" role="radiogroup">${options.map(([id, label]) => `<label class="choice-pill"><input type="radio" name="${name}" value="${id}" ${value === id ? 'checked' : ''}><span>${esc(label)}</span></label>`).join('')}</div>`;
   const question = (title, body, hint = '') => `<fieldset class="survey-question"><legend>${title}</legend>${hint ? `<p class="field-hint">${hint}</p>` : ''}${body}</fieldset>`;
@@ -45,7 +45,7 @@ export function createOnboarding(ctx) {
     const o = state.onboarding, d = o.derived, a = o.answers;
     const h = m => m == null ? '—' : `${hours(m)} 小時`;
     const metric = (label, value, note) => `<article><small>${label}</small><strong class="metric-text">${value}</strong><span>${note}</span></article>`;
-    return `<section class="panel"><p class="eyebrow">YOUR STARTING POINT</p><h2>你的作息起點</h2><div class="report-metrics">
+    return `<section class="panel"><h2>你的作息起點</h2><div class="report-metrics">
       ${metric('時型傾向', CHRONOTYPES[d.chronotype], d.msfsc == null ? '需要非上課日的作息' : `修正後假日睡眠中點 ${clockOf(d.msfsc)}${d.msfscReliable ? '' : ' · 假日用鬧鐘，僅供參考'}`)}
       ${metric('社交時差', d.socialJetlag == null ? '—' : `${hours(d.socialJetlag)} 小時`, d.socialJetlag == null ? '需要上課日與非上課日' : '上課日與非上課日睡眠中點的差距')}
       ${metric('每週平均睡眠', h(d.weeklyDuration), `上課日 ${h(d.workDuration)} · 非上課日 ${h(d.freeDuration)}`)}
@@ -55,7 +55,6 @@ export function createOnboarding(ctx) {
   }
 
   function html() {
-    if (state.demo) return `<div class="page-heading"><div><h1>初次問卷</h1><p>示範模式不會保存問卷，回到自己的資料後就能填寫。</p></div></div>`;
     // A completed or skipped questionnaire only opens again when the user asks for it,
     // never because #onboarding is still in the address bar after a reload.
     if (!draft && !requested && state.onboarding) { setTimeout(() => { if (location.hash === '#onboarding') location.replace('#pet'); }); return ''; }
@@ -69,7 +68,7 @@ export function createOnboarding(ctx) {
       <div class="form-actions">${step > 0 ? '<button class="button secondary" type="button" id="survey-back">上一步</button>' : ''}<button class="button" type="submit">${step === STEPS.length - 1 ? '完成問卷' : '下一步'}${icon('arrow')}</button>${state.onboarding ? '' : '<button class="text-button" type="button" id="survey-skip">稍後再填</button>'}</div></form>
       <p class="notice">答案保存在你的帳號；產生作息目標時，只把整理後的摘要交給 AI 參考。之後可以在偏好設定重新填寫。</p>`;
   }
-  const heading = () => `<div class="page-heading"><div><p class="eyebrow">BEFORE WE BEGIN</p><h1>先認識一下你的作息</h1><p>大約兩分鐘。沒有標準答案，照平常的樣子填就好。</p></div></div>`;
+  const heading = () => `<div class="page-heading"><div><h1>先認識一下你的作息</h1><p>大約兩分鐘。沒有標準答案，照平常的樣子填就好。</p></div></div>`;
 
   function collect(form) {
     const data = new FormData(form), a = draft.answers;
@@ -98,7 +97,7 @@ export function createOnboarding(ctx) {
   }
 
   function bind(page) {
-    if (page !== 'onboarding' || state.demo) return;
+    if (page !== 'onboarding') return;
     const form = $('#onboarding-form');
     if (!form) return;
     form.querySelectorAll('[data-rerender], [data-rerender] input').forEach(el => el.addEventListener('change', () => { collect(form); draft.error = ''; render(); }));
@@ -123,7 +122,7 @@ export function createOnboarding(ctx) {
 
   function promptHTML() {
     // Only accounts that have never answered or skipped see the invitation; skipping hides it.
-    if (state.demo || state.onboarding) return '';
+    if (state.onboarding) return '';
     return `<section class="panel survey-prompt"><div><h2>花兩分鐘，讓夜泊更認識你</h2><p>回答平常的作息與生活習慣，AI 安排目標時會一起參考。</p></div><a class="button secondary small" href="#onboarding" data-start-survey>填寫初次問卷</a></section>`;
   }
   function settingsHTML() {

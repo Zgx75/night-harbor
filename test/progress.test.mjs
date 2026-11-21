@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEconomy,petTransaction,awardNight,balance,assessNight,demoProfile,addDays,snapshotTargets } from '../public/progress.js';
-import {cleanRecords} from '../domain.mjs';
-import {makePlan} from '../domain.mjs';
-import {cleanTargets} from '../reports.mjs';
+import { createEconomy,petTransaction,awardNight,balance,assessNight,addDays,snapshotTargets } from '../public/progress.js';
+import {cleanRecords} from '../src/domain.mjs';
+import {makePlan} from '../src/domain.mjs';
+import {cleanTargets} from '../src/reports/reports.mjs';
 const now=Date.parse('2026-10-15T12:00:00+08:00');
 const targets={'2026-10-14':{bedtime:'00:30',createdAt:'2026-10-14T18:00:00+08:00'}};
 const row={date:'2026-10-15',bedAt:'00:40',sleepAt:'02:00',insomnia:'yes',sleepQuality:2};
@@ -45,8 +45,8 @@ test('new sleep fields validate, retain unknowns, and reject impossible time ord
   for(const patch of [{sleepQuality:0},{screenMinutes:61},{napMinutes:-1},{insomnia:'diagnosed'},{bedAt:'02:30'}])assert.throws(()=>cleanRecords([{...row,...patch}]));
 });
 test('saved nightly targets are validated before coins or reviews use them',()=>{
-  const demo=demoProfile('2026-10-15');
-  assert.equal(Object.keys(cleanTargets(demo.targets)).length,Object.keys(demo.targets).length);
+  const good={'2026-10-14':{bedtime:'01:30',createdAt:'2026-10-14T10:00:00Z'},'2026-10-15':{bedtime:'00:45',createdAt:'2026-10-15T10:00:00Z'}};
+  assert.equal(Object.keys(cleanTargets(good)).length,2);
   assert.throws(()=>cleanTargets({bad:{bedtime:'99:99'}}));
   assert.throws(()=>cleanTargets({'2026-10-15':{bedtime:'12:00',createdAt:'2026-10-15T10:00:00Z'}}));
 });

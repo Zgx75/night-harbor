@@ -1,4 +1,4 @@
-import { assessNight, addDays, nightMinute, nightInstant } from './public/progress.js';
+import { assessNight, addDays, nightMinute, nightInstant } from '../../public/progress.js';
 
 export const MILESTONES = [{ days:3, amount:15, badge:'三晚小星星' }, { days:7, amount:40, badge:'七晚月亮' }, { days:21, amount:150, badge:'二十一晚星河' }];
 export const taipeiDate = now => new Date(now + 8*3600000).toISOString().slice(0,10);

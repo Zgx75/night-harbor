@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdviceGenerator } from '../advice.mjs';
+import { createAdviceGenerator } from '../src/ai/advice.mjs';
 const reply=(value,finishReason='STOP')=>new Response(JSON.stringify({candidates:[{finishReason,content:{parts:[{text:JSON.stringify(value)}]}}]}),{status:200});
 test('RAG keeps the Gemini key in the backend header and disables storage',async()=>{
   let request;

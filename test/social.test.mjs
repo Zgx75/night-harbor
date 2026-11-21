@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readdir, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createApp } from '../server.mjs';
-import { rewardFacts, rewardSummary, taipeiDate, socialNight } from '../rewards.mjs';
+import { createApp } from '../src/server.mjs';
+import { rewardFacts, rewardSummary, taipeiDate, socialNight } from '../src/community/rewards.mjs';
 import { createEconomy, petTransaction, balance, addDays } from '../public/progress.js';
 
 const NOON=Date.parse('2026-11-10T12:00:00+08:00');

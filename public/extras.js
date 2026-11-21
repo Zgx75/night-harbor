@@ -1,6 +1,6 @@
 import { lineText, weeklySummary, weeklySuggestion, weeklyRecapDue, monthlySummary, monthlySuggestion, monthlyRecapDue } from './responses.js';
 import { weekFactors, hoursText, LEGACY_BAND_LABELS } from './factor-survey.js';
-import { PETS,FURNITURE,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,demoProfile,snapshotTargets } from './progress.js';
+import { PETS,FURNITURE,balance,level,normaliseEconomy,petTransaction,awardNight,assessNight,formatClock,nightMinute,nightInstant,addDays,snapshotTargets } from './progress.js';
 
 export function createExtras(ctx) {
   const {state,api,persist,render,toast,esc,icon,localDate,userId}=ctx;
@@ -51,7 +51,6 @@ export function createExtras(ctx) {
   let growth=null;
   function currentStage(pet) {
     const stage=stageOf(level(state.economy));
-    if(state.demo)return stage;
     const key=`night-harbor-pet-stage-${userId}`;
     let seen=0;
     try{seen=Number(localStorage.getItem(key))||0;}catch{/* Remembering is optional. */}
@@ -83,8 +82,8 @@ export function createExtras(ctx) {
     return `<svg class="recap-chart" viewBox="0 0 640 205" role="img" aria-label="最近七天睡眠自評趨勢，缺填不補零；詳細數字見下方表格">${[1,3,5].map(n=>`<line x1="45" x2="610" y1="${160-(n-1)*30}" y2="${160-(n-1)*30}" stroke="#343745"/><text x="15" y="${164-(n-1)*30}">${n}</text>`).join('')}<path d="${path}" fill="none" stroke="#c7b9e7" stroke-width="2"/>${trend.filter(p=>p.quality!=null).map(p=>`<circle cx="${50+trend.indexOf(p)*90}" cy="${160-(p.quality-1)*30}" r="5" fill="#e5ce9e"/>`).join('')}${trend.map((p,i)=>`<text x="${50+i*90}" y="190" text-anchor="middle">${when(p.date)}</text>`).join('')}</svg>`;
   }
   const PERIODS={
-    weekly:{word:'這一週',whole:'整週',next:'下週',eyebrow:'A FEW WORDS FOR YOUR NEXT WEEK',every:'每週更新一次',key:'weeklyRecap',summary:weeklySummary,fixed:weeklySuggestion,due:weeklyRecapDue,api:'/api/reports/weekly'},
-    monthly:{word:'這個月',whole:'整個月',next:'下個月',eyebrow:'A FEW WORDS FOR THE NEXT STAGE',every:'每 28 天更新一次',key:'monthlyRecap',summary:monthlySummary,fixed:monthlySuggestion,due:monthlyRecapDue,api:'/api/reports/monthly'}
+    weekly:{word:'這一週',whole:'整週',next:'下週',every:'每週更新一次',key:'weeklyRecap',summary:weeklySummary,fixed:weeklySuggestion,due:weeklyRecapDue,api:'/api/reports/weekly'},
+    monthly:{word:'這個月',whole:'整個月',next:'下個月',every:'每 28 天更新一次',key:'monthlyRecap',summary:monthlySummary,fixed:monthlySuggestion,due:monthlyRecapDue,api:'/api/reports/monthly'}
   };
   // Factors come only from follow-ups after late nights, so they are labelled that way.
   function factorsHTML(f,kind) {
@@ -101,21 +100,21 @@ export function createExtras(ctx) {
     const sourceLink=s=>`<a class="source-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.publisher)} ↗</a>`;
     let body;
     if(state[kind+'Busy'])body=`<p class="notice" role="status">正在整理${P.word}的回顧…</p>`;
-    else if(r&&!state.demo)body=`<p class="notice">${when(r.start)} — ${when(r.end)} 的回顧 · ${P.every}</p><p class="answer-text">${esc(r.answer)}</p>${r.suggestion?`<article class="advice-item"><h3>${P.next}可以試試：${esc(r.suggestion.title)}</h3><p>${esc(r.suggestion.detail)}</p>${r.sources.map(sourceLink).join('')}</article>`:''}<p class="notice">由 AI 根據上面的統計與追問整理，不是醫療建議；數字以程式計算為準。</p>`;
+    else if(r)body=`<p class="notice">${when(r.start)} — ${when(r.end)} 的回顧 · ${P.every}</p><p class="answer-text">${esc(r.answer)}</p>${r.suggestion?`<article class="advice-item"><h3>${P.next}可以試試：${esc(r.suggestion.title)}</h3><p>${esc(r.suggestion.detail)}</p>${r.sources.map(sourceLink).join('')}</article>`:''}<p class="notice">由 AI 根據上面的統計與追問整理，不是醫療建議；數字以程式計算為準。</p>`;
     else if(!summary.complete)body=fixed;
-    else body=`${fixed}${state[kind+'Error']?`<p class="notice">AI 回顧暫時無法產生（${esc(state[kind+'Error'])}），先顯示固定建議，下次開啟會再試。</p>`:state.demo?'<p class="notice">示範模式不產生 AI 回顧。</p>':''}`;
-    return `<section class="panel ai-report"><p class="eyebrow">${P.eyebrow}</p><h2>${P.word}的回顧</h2>${body}</section>`;
+    else body=`${fixed}${state[kind+'Error']?`<p class="notice">AI 回顧暫時無法產生（${esc(state[kind+'Error'])}），先顯示固定建議，下次開啟會再試。</p>`:''}`;
+    return `<section class="panel ai-report"><h2>${P.word}的回顧</h2>${body}</section>`;
   }
   // Generates the reply once per period (7 or 28 days) when the period has enough data.
   async function maybeRecap(kind) {
     const P=PERIODS[kind], date=localDate();
-    if(state.demo||state[kind+'Busy']||state[kind+'Tried']===date||!navigator.onLine||!P.due(state[P.key],date))return;
+    if(state[kind+'Busy']||state[kind+'Tried']===date||!navigator.onLine||!P.due(state[P.key],date))return;
     if(!P.summary(state.records,state.targets,date).complete)return;
     state[kind+'Busy']=true;state[kind+'Error']='';state[kind+'Tried']=date;render();
     try{
       const body={asOf:date,records:state.records,targets:state.targets,factorSurveys:state.factorSurveys||[],...(kind==='monthly'?{previousRecap:state.monthlyRecap}:{})};
       const recap=await api(P.api,body);
-      if(!state.demo){state[P.key]=recap;persist();}
+      state[P.key]=recap;persist();
     }catch(e){state[kind+'Error']=e.message;}
     finally{state[kind+'Busy']=false;if(location.hash==='#reports')render();}
   }
@@ -140,7 +139,7 @@ export function createExtras(ctx) {
   }
   function reportsHTML() {
     const mode=state.reportMode==='monthly'?'monthly':'weekly';
-    return `<div class="page-heading"><div><p class="eyebrow">LOOK BACK, MOVE GENTLY FORWARD</p><h1>睡眠回報</h1><p>每天的回報交給小夥伴；這裡看每週、每月有紀錄支持的變化。</p></div></div><div class="report-tabs" role="tablist" aria-label="回報週期"><button role="tab" aria-selected="${mode==='weekly'}" data-report-mode="weekly">每週回顧</button><button role="tab" aria-selected="${mode==='monthly'}" data-report-mode="monthly">每月回顧</button></div>${mode==='monthly'?monthlyHTML():weeklyHTML()}`;
+    return `<div class="page-heading"><div><h1>睡眠回報</h1><p>每天的回報交給小夥伴；這裡看每週、每月有紀錄支持的變化。</p></div></div><div class="report-tabs" role="tablist" aria-label="回報週期"><button role="tab" aria-selected="${mode==='weekly'}" data-report-mode="weekly">每週回顧</button><button role="tab" aria-selected="${mode==='monthly'}" data-report-mode="monthly">每月回顧</button></div>${mode==='monthly'?monthlyHTML():weeklyHTML()}`;
   }
   // The pet strolls around the floor of its room and shakes a few times when it is touched.
   // Its motion is the point of this page, so it keeps moving even when the system asks for reduced motion.
@@ -192,19 +191,6 @@ export function createExtras(ctx) {
   }
   function bind(page) {
     if(page!=='pet')stopWander();
-    $('#enter-demo')?.addEventListener('click',async()=>{
-      if(state.demo){toast('目前已經在示範模式。');return;}
-      if(state.planBusy||state.weeklyBusy||state.monthlyBusy){toast('先等待目前的分析完成，再切換示範。');return;}
-      state.realBackup=structuredClone({records:state.records,targets:state.targets,economy:state.economy,settings:state.settings,closures:state.closures,aiPlan:state.aiPlan,plan:state.plan,onboarding:state.onboarding,petFeedback:state.petFeedback,factorSurveys:state.factorSurveys,weeklyRecap:state.weeklyRecap,monthlyRecap:state.monthlyRecap});
-      Object.assign(state,demoProfile(localDate()),{demo:true,aiPlan:null,plan:null,flow:'home',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
-      const pending=ctx.updatePlan();location.hash='pet';render();await pending;render();toast('已進入虛構資料示範；原本資料不會被覆寫。');
-    });
-    $('#exit-demo')?.addEventListener('click',async()=>{
-      if(state.planBusy||state.weeklyBusy||state.monthlyBusy){toast('等待這次回覆完成後，就能離開示範。');return;}
-      const backup=state.realBackup;
-      Object.assign(state,backup,{demo:false,realBackup:null,advice:null,flow:'home',closureId:null,action:'',note:'',selectedDate:'',petNameDraft:undefined,petDraft:undefined});
-      await ctx.updatePlan();render();toast('已回到原本的資料。');
-    });
     if(page==='pet') {
       startWander();
       $$('[data-pet-choice]').forEach(el=>el.addEventListener('click',()=>{state.petNameDraft=$('#pet-name')?.value||'';state.petDraft=el.dataset.petChoice;render();}));

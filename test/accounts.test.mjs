@@ -4,8 +4,18 @@ import { mkdtemp, readdir, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { createApp } from '../server.mjs';
-import { demoProfile } from '../public/progress.js';
+import { createApp } from '../src/server.mjs';
+import { createEconomy, petTransaction, awardNight, nightInstant } from '../public/progress.js';
+
+// A small, realistic account profile used to check that every part of it is stored and returned.
+function sampleProfile() {
+  const records = [{ date: '2026-11-01', bedAt: '01:30', sleepQuality: 3 }, { date: '2026-11-02', bedAt: '00:40', sleepQuality: 4 }];
+  const targets = Object.fromEntries([['2026-10-31', '01:30'], ['2026-11-01', '00:45']].map(([night, bedtime]) => [night, { bedtime, createdAt: new Date(nightInstant(night, 1080)).toISOString() }]));
+  let economy = petTransaction(createEconomy(), { type: 'adopt', id: 'fox', name: '栗子' });
+  for (const row of records) economy = awardNight(economy, row, targets, nightInstant('2026-11-02', 1440)).economy;
+  const factorSurveys = [{ id: 'round-2026-10-13', status: 'completed', triggeredOn: '2026-10-13', completedOn: '2026-10-13', lateDates: ['2026-10-11', '2026-10-12', '2026-10-13'], answers: { factors: ['caffeine', 'media'], caffeine: { taken: 'yes', drinks: ['coffee', 'energy'], amount: 'two', lastAt: '19:00' }, media: { delayed: 'yes' } } }];
+  return { records, targets, economy, factorSurveys };
+}
 
 async function fixture(t, options = {}) {
   const server = createApp({ apiKey: '', dbPath: ':memory:', ...options });
@@ -67,7 +77,7 @@ test('registration, login and cookie settings validate credentials without leaki
 test('each account owns its records, pet, coins, settings and saved goals', async t => {
   const f = await fixture(t), a = f.browser(), b = f.browser();
   const first = await register(a, 'first'), second = await register(b, 'second');
-  const profile = demoProfile('2026-11-02');
+  const profile = sampleProfile();
   profile.settings = { currentBedtime: '02:00', targetBedtime: '00:30', wakeTime: '08:30', reminders: true, saveClosures: true };
   const saved = await a.request('/api/profile', { revision: 0, profile, userId: second.id });
   assert.equal(saved.status, 200);

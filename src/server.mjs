@@ -3,16 +3,16 @@ import { readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { AppError } from './ai.mjs';
+import { AppError } from './ai/ai.mjs';
 import { cleanRecords } from './domain.mjs';
-import { createAdviceGenerator } from './advice.mjs';
-import { knowledge } from './knowledge.mjs';
-import { createPlanGenerator } from './planner.mjs';
-import { createAccountStore } from './accounts.mjs';
-import { weeklyFacts, weeklyQuestion } from './weekly.mjs';
-import { monthlyFacts, monthlyQuestion, monthSnapshot } from './monthly.mjs';
+import { createAdviceGenerator } from './ai/advice.mjs';
+import { knowledge } from './ai/knowledge.mjs';
+import { createPlanGenerator } from './ai/planner.mjs';
+import { createAccountStore } from './accounts/accounts.mjs';
+import { weeklyFacts, weeklyQuestion } from './reports/weekly.mjs';
+import { monthlyFacts, monthlyQuestion, monthSnapshot } from './reports/monthly.mjs';
 
-const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 

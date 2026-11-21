@@ -26,7 +26,7 @@
 <body data-auth="loading">
   <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title">
     <div class="auth-card">
-      <div class="auth-brand"><span aria-hidden="true">☾</span><span>夜泊<small>NIGHT HARBOR</small></span></div>
+      <div class="auth-brand"><span aria-hidden="true">☾</span><span>夜泊</span></div>
       <h1 id="auth-title">把你的小日常，留在這裡。</h1>
       <p class="auth-intro">登入後，回到你和小夥伴的房間。</p>
       <p id="auth-loading" role="status">正在確認登入狀態…</p>
@@ -39,13 +39,6 @@
         <label class="field">帳號<input id="auth-username" name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="例如：night_harbor"><span class="auth-hint">3–24 個英文字母、數字或底線，不分大小寫。</span></label>
         <label class="field">密碼<input id="auth-password" name="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password" placeholder="至少 8 個字元"></label>
         <label class="field" id="auth-confirm-row" hidden>再次輸入密碼<input id="auth-confirm" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="再確認一次密碼"></label>
-        <div class="auth-setup" id="auth-setup-row" hidden>
-          <h2>你的作息</h2>
-          <p class="auth-hint">夜泊會依這三個時間安排今晚的目標，之後可以在「設定」修改。</p>
-          <label class="field">目前通常幾點上床<input id="auth-current-bedtime" name="currentBedtime" type="time"></label>
-          <label class="field">最終希望幾點上床<input id="auth-target-bedtime" name="targetBedtime" type="time" value="00:30"><span class="auth-hint">長期想靠近的時間，不是今晚必須達成。</span></label>
-          <label class="field">通常需要幾點起床<input id="auth-wake-time" name="wakeTime" type="time" value="08:30"></label>
-        </div>
         <p id="auth-error" role="alert"></p>
         <button class="button" type="submit" id="auth-submit">登入夜泊</button>
       </form>
@@ -55,7 +48,7 @@
   <a class="skip-link" href="#main">跳到主要內容</a>
   <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar" aria-label="功能工具列">
-      <a class="brand" href="#pet" aria-label="夜泊寵物首頁" title="回到寵物首頁"><span class="brand-symbol" aria-hidden="true">☾</span><span>夜泊<small>NIGHT HARBOR</small></span></a>
+      <a class="brand" href="#pet" aria-label="夜泊寵物首頁" title="回到寵物首頁"><span class="brand-symbol" aria-hidden="true">☾</span><span>夜泊</span></a>
       <nav aria-label="主要導覽">
         <a href="#pet" class="nav-link" data-nav="pet" aria-label="寵物首頁" title="寵物首頁"><span data-icon="pet"></span><span class="nav-text">夥伴</span></a>
         <a href="#shop" class="nav-link" data-nav="shop" aria-label="商店" title="商店"><span data-icon="shop"></span><span class="nav-text">商店</span></a>
@@ -78,7 +71,7 @@
       <p class="offline-banner" id="offline-banner" role="status" hidden>目前離線。已登入頁面中的變更會先暫存在此裝置，恢復連線後再同步；重新登入與 AI 功能需要連線。</p>
       <section class="update-banner" id="update-banner" role="status" hidden><span>新版已準備好，完成手上的操作並同步資料後會自動更新。</span><button class="button secondary small" id="update-app" type="button">檢查並更新</button></section>
       <main id="main" tabindex="-1"></main>
-      <footer class="footer"><span>一個溫柔的句點，也是一個新的開始。</span><button class="text-button" type="button" data-install-app>iPhone 安裝說明</button><span>NIGHT HARBOR © 2026</span></footer>
+      <footer class="footer"><span>NIGHT HARBOR © 2026</span></footer>
     </div>
   </div>
   <div class="toast" role="status" id="toast" hidden></div>

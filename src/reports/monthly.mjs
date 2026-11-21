@@ -1,11 +1,11 @@
 // Monthly AI reply over 28 days. The program computes every number and decides whether there is
 // enough data; the model writes a review and one next-stage step, which may be a small experiment.
-import { AppError } from './ai.mjs';
-import { cleanRecords, isDate } from './domain.mjs';
+import { AppError } from '../ai/ai.mjs';
+import { cleanRecords, isDate } from '../domain.mjs';
 import { cleanTargets } from './reports.mjs';
-import { monthlySummary, cleanMonthlyRecap } from './public/responses.js';
-import { cleanSurveys, weekFactors, gapFacts } from './public/factor-survey.js';
-import { formatClock } from './public/progress.js';
+import { monthlySummary, cleanMonthlyRecap } from '../../public/responses.js';
+import { cleanSurveys, weekFactors, gapFacts } from '../../public/factor-survey.js';
+import { formatClock } from '../../public/progress.js';
 
 const round = (v, d = 0) => v == null ? null : Number(v.toFixed(d));
 const percent = v => v == null ? null : Math.round(v * 100);

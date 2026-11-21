@@ -90,26 +90,3 @@ export function petTransaction(economy,event,now=Date.now()) {
   }
   throw new Error('無法完成這個操作。');
 }
-export function demoProfile(today) {
-  const records=[],targets={};
-  // Two earlier weeks (fictional) so the 28-day review is complete: about 02:00 to bed, all late,
-  // recorded with the current two-field form. The latest 14 days below are unchanged.
-  for(let k=0;k<14;k++) {
-    const date=addDays(today,k-27),night=addDays(date,-1);
-    records.push({date,bedAt:formatClock(1550+(k%3)*10),sleepQuality:[2,2,3,2,2,3,2][k%7]});
-    targets[night]={bedtime:'01:30',createdAt:new Date(nightInstant(night,1080)).toISOString()};
-  }
-  for(let i=0;i<14;i++) {
-    const date=addDays(today,i-13),night=addDays(date,-1),recent=i>=7;
-    const bed=recent?1465+(i%3)*10:1535+(i%3)*10,target=recent?'00:45':'01:30';
-    records.push({date,bedAt:formatClock(bed),sleepAt:formatClock(bed+20+(i%3)*10),wakeAt:'08:30',sleepQuality:recent?[3,4,4,3,4,5,4][i-7]:[2,2,3,2,3,2,3][i],insomnia:recent?(i===8||i===11?'yes':'no'):(i%2===0?'yes':'no'),mood:recent?2:4,fatigue:recent?2:4,screenMinutes:recent?15:50,caffeineAt:recent?'12:00':'18:00',exerciseAt:'19:00',exerciseIntensity:'moderate',napMinutes:recent?15:45});
-    targets[night]={bedtime:target,createdAt:new Date(nightInstant(night,1080)).toISOString()};
-  }
-  let economy=petTransaction(createEconomy(),{type:'adopt',id:'fox',name:'栗子（示範）'});
-  for(const row of records)economy=awardNight(economy,row,targets,nightInstant(today,1440)).economy;
-  // One answered follow-up from the late weeks, so reviews can show factors reported on late days.
-  const asked=addDays(today,-20);
-  const factorSurveys=[{id:`round-${asked}`,status:'completed',triggeredOn:asked,completedOn:asked,lateDates:[addDays(asked,-2),addDays(asked,-1),asked],
-    answers:{factors:['caffeine','media'],caffeine:{taken:'yes',drinks:['coffee','energy'],amount:'two',lastAt:'19:00'},media:{delayed:'yes'}}}];
-  return {records,targets,economy,factorSurveys,settings:{currentBedtime:'01:30',targetBedtime:'23:30',wakeTime:'08:30',reminders:false,saveClosures:true},closures:[]};
-}
