@@ -69,7 +69,7 @@ test('the installable shell is complete, works from cache and never caches API d
     }
     const html = await shell.get('/').clone().text();
     assert.match(html, /apple-touch-icon/);
-    assert.match(html, /id="install-dialog"/);
+    assert.doesNotMatch(html, /install-banner|install-dialog/, 'the home-screen banner and its dialog are gone');
   });
 
   await t.test('a cached launch works without the server and API routes bypass cache', async () => {

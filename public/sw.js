@@ -1,5 +1,5 @@
 // Bump the version whenever the app shell changes. Keep an entire release together.
-const CACHE = 'night-harbor-shell-v63';
+const CACHE = 'night-harbor-shell-v64';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/type.css', '/extras.css', '/pwa.css', '/layout.css',
   '/app.js', '/extras.js', '/progress.js', '/plan-state.js',

@@ -48,7 +48,6 @@ body[data-page=pet] .pet-nameplate h2{margin:0;font-size:26px;line-height:1.4;ov
 body[data-page=pet] .room-floor{height:var(--floor,44%);background:linear-gradient(#3b3440,#332d38)}
 body[data-page=pet] .room-rug{width:min(70%,560px);height:22%;bottom:7%}
 body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px solid var(--line);border-radius:19px;background:var(--panel-soft)}
-.install-banner{margin-top:18px}
 .form-grid>.field{min-width:0}
 #plan-form{margin-top:18px}
 .field input,.field select,.field textarea{min-width:0;max-width:100%}
@@ -85,10 +84,6 @@ body[data-page=pet] .pet-care{padding:20px 23px;margin:16px 0 26px;border:1px so
   body[data-page=pet] .room-pet[data-stage="3"]{--pet-size:45px}
   body[data-page=pet] .room-rug{width:80%}
   body[data-page=pet] .pet-care{padding:17px 15px;gap:15px}
-  .install-banner{flex-wrap:wrap;padding:12px;gap:9px}
-  .install-banner>div{flex-basis:calc(100% - 58px)}
-  .install-banner>.button{margin-left:53px}
-  .install-banner>.install-dismiss{margin-left:auto}
   .toast{left:calc((100% - var(--rail-width) - env(safe-area-inset-right))/2);bottom:calc(18px + env(safe-area-inset-bottom));width:max-content;max-width:calc(100vw - var(--rail-width) - env(safe-area-inset-right) - 24px);padding:12px 15px}
   .footer{padding-bottom:24px}
 }

@@ -1,6 +1,4 @@
 const $ = selector => document.querySelector(selector);
-const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-const dialog = $('#install-dialog');
 let registration;
 let updating = false;
 let needsReload = false;
@@ -48,34 +46,11 @@ function checkUpdates() {
   return checking;
 }
 
-function updateInstallBanner() {
-  let dismissed = false;
-  try { dismissed = sessionStorage.getItem('night-harbor-install-dismissed') === 'yes'; } catch { /* Storage may be unavailable. */ }
-  $('#install-banner').hidden = standalone() || dismissed;
-}
 function updateConnection() {
   $('#offline-banner').hidden = navigator.onLine;
 }
-function showInstall() {
-  $('#install-description').textContent = standalone()
-    ? '夜泊已從主畫面開啟。你可以隨時回來查看安裝與離線狀態。'
-    : '用 iPhone 的 Safari 開啟夜泊，依照以下步驟安裝。';
-  if (!dialog.open) dialog.showModal();
-}
-document.addEventListener('click', event => {
-  if (event.target.closest('[data-install-app]')) showInstall();
-});
-$('#close-install').addEventListener('click', () => dialog.close());
-$('#finish-install').addEventListener('click', () => dialog.close());
-$('#dismiss-install').addEventListener('click', () => {
-  try { sessionStorage.setItem('night-harbor-install-dismissed', 'yes'); } catch { /* Hide for this page anyway. */ }
-  $('#install-banner').hidden = true;
-});
 window.addEventListener('online', () => { updateConnection(); checkUpdates(); });
 window.addEventListener('offline', updateConnection);
-window.addEventListener('appinstalled', updateInstallBanner);
-matchMedia('(display-mode: standalone)').addEventListener('change', updateInstallBanner);
-updateInstallBanner();
 updateConnection();
 
 function showUpdate() { $('#update-banner').hidden = false; applyUpdate(); }

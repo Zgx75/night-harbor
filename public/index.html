@@ -61,12 +61,6 @@
     <div class="content-shell">
       <header class="topbar"><div class="topbar-left"><button class="back-button" id="back-button" type="button" aria-label="回前一頁" hidden><span data-icon="back"></span></button></div><span class="mobile-brand"><span class="brand-moon" aria-hidden="true">☾</span>夜泊</span><div class="account-tools" id="account-tools" hidden><a class="account-button" id="account-button" href="#user" aria-label="使用者"><span data-icon="user"></span></a></div></header>
       <div class="account-sync" id="account-sync" role="status" hidden><span id="sync-label"></span><button class="text-button" type="button" id="sync-retry" hidden>重試同步</button><button class="text-button" type="button" id="sync-backup" hidden>下載此裝置備份</button><button class="text-button" type="button" id="sync-reload" hidden>讀取最新資料</button></div>
-      <section class="install-banner" id="install-banner" aria-label="安裝夜泊" hidden>
-        <img src="/icons/apple-touch-icon.png" width="44" height="44" alt="">
-        <div><strong>把夜泊，留在主畫面</strong><p>下次，點一下就能回到這裡。</p></div>
-        <button class="button secondary small" type="button" data-install-app>安裝</button>
-        <button class="install-dismiss" type="button" id="dismiss-install" aria-label="暫時隱藏安裝提示">×</button>
-      </section>
       <p class="offline-banner" id="offline-banner" role="status" hidden>目前離線。已登入頁面中的變更會先暫存在此裝置，恢復連線後再同步；重新登入與 AI 功能需要連線。</p>
       <section class="update-banner" id="update-banner" role="status" hidden><span>新版已準備好，完成手上的操作並同步資料後會自動更新。</span><button class="button secondary small" id="update-app" type="button">檢查並更新</button></section>
       <main id="main" tabindex="-1"></main>
@@ -74,15 +68,6 @@
     </div>
   </div>
   <div class="toast" role="status" id="toast" hidden></div>
-  <dialog id="install-dialog" aria-labelledby="install-title">
-    <div class="install-dialog-heading"><img src="/icons/apple-touch-icon.png" width="56" height="56" alt=""><button class="install-dismiss" id="close-install" type="button" aria-label="關閉安裝說明">×</button></div>
-    <h2 id="install-title">在主畫面，為自己留一個位置</h2>
-    <p id="install-description">用 iPhone 的 Safari 開啟夜泊，依照以下步驟安裝。</p>
-    <ol class="install-steps"><li>開啟 Safari 的選單，點選「分享」。</li><li>往下找到「加入主畫面」。</li><li>若有「當作網頁 App 開啟」選項，將它開啟，再點「新增」。</li><li>回到主畫面，點「夜泊」圖示開始使用。</li></ol>
-    <p class="notice" id="pwa-storage-status">正在確認離線啟動狀態…</p>
-    <p class="notice">登入與 AI 分析需要連線。資料會跟著帳號保存，尚未同步的變更會暫存在目前裝置；請在偏好設定定期匯出備份。</p>
-    <button class="button" type="button" id="finish-install">知道了</button>
-  </dialog>
   <dialog id="confirm-dialog"><form method="dialog"><span class="dialog-star">✧</span><h2 id="dialog-title"></h2><p id="dialog-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">先保留</button><button class="button" value="confirm">確定清除</button></div></form></dialog>
   <dialog id="legacy-dialog" aria-labelledby="legacy-title"><form method="dialog"><h2 id="legacy-title">把原本的小日常帶過來？</h2><p>這台裝置有先前保存的寵物或生活紀錄。可以匯入這個新帳號，在其他裝置接著使用；也可以先從空白帳號開始。原本的裝置資料會保留。</p><div class="form-actions"><button class="button" value="import">匯入原有資料</button><button class="button secondary" value="skip">使用空白帳號</button></div></form></dialog>
 </body>
